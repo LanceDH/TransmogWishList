@@ -1,0 +1,8 @@
+﻿## Interface: 70200
+## Title: TransmogWishList
+## Notes: Amey's personal toy.
+## Author: LanceDH
+## Version: 0.1
+## SavedVariables: TWLDB
+
+TransmogWishList.xml
