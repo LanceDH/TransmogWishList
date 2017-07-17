@@ -1,8 +1,8 @@
 ﻿## Interface: 70200
 ## Title: TransmogWishList
-## Notes: Amey's personal toy.
+## Notes: A lightweight wish list for transmog appearances.
 ## Author: LanceDH
-## Version: 0.1
+## Version: 0.2
 ## SavedVariables: TWLDB
 
 TransmogWishList.xml

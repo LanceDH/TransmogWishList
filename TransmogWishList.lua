@@ -24,6 +24,10 @@ local WARDROBE_MODEL_SETUP_GEAR = {
 	["INVTYPE_HEAD"] = 78416,
 }
 
+local FORMAT_MODID_SELECTED = "Selected: |cFFFFD100%d|r ";
+local FORMAT_MODPICKER_INFO = "ItemID |cFFFFD100%d|r has |cFFFFD100%d|r appearance mods.|nPlease select which one you'd like to add to your list.";
+local FORMAT_APPEARANCE_ADDED = "Appearance of |c%s%s|r added to your wishlist (%d).";
+
 local TWL_DEFAULTS = {
 	global = {	
 		wishList = {};
@@ -122,25 +126,23 @@ end
 
 function TransmogWishListDataProviderMixin:AddItemIDToList(itemID, modID)
 	if not type(itemID) == "number" then return; end
-	--print(itemID, modID, C_TransmogCollection.GetItemInfo(itemID, modID))
 	local appearanceID, sourceID = C_TransmogCollection.GetItemInfo(itemID, modID);
 	if not appearanceID then
-		print("Invalid item ID.");
+		TransmogWishListPopUp:Announce("Invalid item ID.");
 		return;
 	end
 	
 	local sourceInfo = C_TransmogCollection.GetSourceInfo(sourceID)
 	
 	if sourceInfo.isCollected then
-		print("You already unlocked the appearance of this item.");
+		TransmogWishListPopUp:Announce("You already unlocked the appearance of this item.");
 		return;
 	end
 	
 	if not self:GetListItemByVisualID(appearanceID, sourceID) then
-		local name, link, _, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemID, modID);
+		local name, link, quality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemID, modID);
 		if not link then
 			self.waitingList[itemID] = {["itemID"] = itemID, ["modID"] = modID};
-			--print("Waiting for item data");
 			return;
 		end
 		local obtainable = select(2, C_TransmogCollection.PlayerCanCollectSource(sourceID));
@@ -148,14 +150,16 @@ function TransmogWishListDataProviderMixin:AddItemIDToList(itemID, modID)
 		local item = {["itemID"] = itemID, ["visualID"] = appearanceID, ["collected"] = false, ["sourceID"] = sourceID, ["isArmor"] = isArmor, ["equipLocation"] = itemEquipLoc, ["obtainable"] = self:HasObtainableSource(appearanceID, sourceID)};
 		self.lastAddition = item;
 		table.insert(self.wishList, item);
-		print("Appearance of " .. name .. " ".. link .. " added to your wishlist (".. appearanceID ..").");
+		
+		local r, g, b, hex = GetItemQualityColor(quality or 1);
+		TransmogWishListPopUp:Announce(FORMAT_APPEARANCE_ADDED:format(hex, name, appearanceID));
 		self:Sort();
 		
 		TransmogWishListFrame:Update();
 		-- Update in case we added something that was currently visible
 		TWL:UpdateAllWishButtons();
 	else
-		print("The appearance of this item is already on your wishlist.")
+		TransmogWishListPopUp:Announce("The appearance is already on your wishlist.");
 	end
 end
 
@@ -226,6 +230,8 @@ function TransmogWishListMixin:OnEvent(event, ...)
 		if (waiting) then
 			_wishListDataProvider:AddItemIDToList(waiting.itemID, waiting.modID);
 			_wishListDataProvider.waitingList[itemID] = nil;
+		elseif TransmogWishListModPicker.needsData then
+			TransmogWishListModPicker:ReceivedDataForItemID(itemID);
 		end
 		return;
 	end
@@ -284,6 +290,10 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 	TransmogWishListButton:SetParent(collectionFrame);
 	TransmogWishListButton:SetPoint("BOTTOMRIGHT", collectionFrame, "BOTTOMRIGHT", -75, 42);
 	
+	TransmogWishListPopUp:SetParent(collectionFrame);
+	TransmogWishListPopUp:SetPoint("BOTTOM", collectionFrame, "BOTTOM", 0, 15);
+	TransmogWishListPopUp:SetFrameLevel(20)
+	
 	for k, model in ipairs(collectionFrame.Models) do
 		model.TWLWishButton = CreateFrame("FRAME", nil, model, "TWLWishButtonTemplate");
 		model:HookScript("OnEnter", function(self)
@@ -293,11 +303,6 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 		model:HookScript("OnLeave", function(self)
 				TWL:UpdateAllWishButtons()
 			end)
-		--SetPortraitToTexture(model.TWLWishButton.texture, "Interface/ICONS/Spell_Holy_PrayerOfMendingtga");
-		-- model.TWLWishButton:ClearAllPoints();
-		-- model.TWLWishButton:SetPoint("TOPRIGHT");
-		-- model.TWLWishButton:Show();
-		-- print(model.TWLWishButton);
 	end
 	
 	hooksecurefunc("WardrobeCollectionFrame_SetTab", function(...) 
@@ -341,15 +346,6 @@ function TransmogWishListMixin:Update()
 			model:Hide();
 		end
 	end
-	
-	if true then return end
-	for k, v in ipairs(self.Models) do
-		local cameraID = C_TransmogCollection.GetAppearanceCameraID(item.visualID);
-		v:SetUnit("player");
-		Model_ApplyUICamera(v, cameraID);
-		v:TryOn(item.sourceID)
-		v:Show();
-	end
 end
 
 
@@ -363,8 +359,8 @@ function TransMogWishListModelMixin:OnLoad()
 end
 
 function TransMogWishListModelMixin:OnModelLoaded()
-	if (self.itemInfo) then
-		self:ShowWishlistItem(true);
+	if (self.cameraID) then
+		Model_ApplyUICamera(self, self.cameraID);
 	end
 end
 
@@ -408,16 +404,15 @@ function TransMogWishListModelMixin:RemoveButtonOnClick()
 	self:GetParent():Update();
 end
 
-function TransMogWishListModelMixin:ShowWishlistItem(skipModel)
+function TransMogWishListModelMixin:ShowWishlistItem()
+	
 	local cameraID;
 	local itemInfo = self.itemInfo;
 	self:Undress();
 	
 	if itemInfo.isArmor then
 		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
-		if not skipModel then
-			self:SetUnit("player", false);
-		end
+		self:SetUnit("player", false);
 		self:SetUseTransmogSkin(WARDROBE_MODEL_SETUP[itemInfo.equipLocation].useTransmogSkin);
 		for slot, equip in pairs(WARDROBE_MODEL_SETUP[itemInfo.equipLocation].slots) do
 			if ( equip ) then
@@ -427,19 +422,15 @@ function TransMogWishListModelMixin:ShowWishlistItem(skipModel)
 		self:TryOn(itemInfo.sourceID)
 	else
 		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
-		if not skipModel then
-			self:SetItemAppearance(itemInfo.visualID)
-		end
+		self:SetItemAppearance(itemInfo.visualID)
 	end
 	
 		Model_ApplyUICamera(self, cameraID);
 		self.cameraID = cameraID;
-	if (itemInfo.collected) then
-		self.NewString:Show();
-		self.NewString:SetText("You did it!")
-	end
+		
 	if itemInfo.obtainable then
-		self.Border:SetAtlas("transmog-wardrobe-border-collected");
+		self.Border:SetAtlas("transmog-wardrobe-border-uncollected");
+		--self.Border:SetAtlas("transmog-wardrobe-border-collected");
 	else
 		self.Border:SetAtlas("transmog-wardrobe-border-unusable");
 	end
@@ -563,10 +554,7 @@ end
 
 function TWLWishButtonMixin:OnMouseUp()
 	self.texture:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0);
-	--self.isWished = not self.isWished;
-	
-	
-	
+
 	if self.isWished  then
 		_wishListDataProvider:RemoveByVisualID(self.visualInfo.visualID);
 		TransmogWishListFrame:Update();
@@ -597,17 +585,31 @@ function TWLModPickerMixin:Close()
 	TransmogWishListFrame.modpickerOverlay:Hide();
 end
 
+function TWLModPickerMixin:ReceivedDataForItemID(itemID)
+	if (tonumber(itemID) == tonumber(self.itemID)) then
+		self:Setup(self.itemID, self.mods);
+	end
+end
+
 function TWLModPickerMixin:Setup(itemID, mods)
-	local name, link, _, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemID, modID);
+	--UIParentLoadAddOn("Blizzard_DebugTools");
+	--DisplayTableInspectorWindow(mods)
+	
 	self.itemID = itemID;
+	self.mods = mods;
+	local name, link, _, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemID, modID);
+	if not name then
+		self.needsData = true;
+		return;
+	end
+	self.needsData = nil;
+	
 	self.isArmor = WARDROBE_MODEL_SETUP[itemEquipLoc] and true or false;
 	self.itemEquipLoc = itemEquipLoc; 
-	self.mods = mods;
 	self.selected = self.mods[1]; 
 	self:Show();
 	TransmogWishListFrame.modpickerOverlay:Show();
-	local infoItemIDFormat = "ItemID |cFFFFD100%d|r has |cFFFFD100%d|r appearance mods.|nPlease select which one you'd like to add to your list.";
-	self.Info:SetText(infoItemIDFormat:format(itemID, #mods));
+	self.Info:SetText(FORMAT_MODPICKER_INFO:format(itemID, #mods));
 	
 	self.PreviewModel:SetKeepModelOnHide(true);
 	for k, button in ipairs(self.ModList.ModButtons) do
@@ -623,10 +625,15 @@ function TWLModPickerMixin:Update()
 		button:Setup(self.mods[i]);
 	end
 	
-	local selectedItemIDFormat = "Selected: |cFFFFD100%d|r ";
-	self.SelectedText:SetText(selectedItemIDFormat:format(self.selected.modID));
+	self.SelectedText:SetText(FORMAT_MODID_SELECTED:format(self.selected.modID));
 	
 	self:ShowModel(self.selected)
+end
+
+function TWLModPickerMixin:OnModelLoaded()
+	if (self.PreviewModel.cameraID) then
+		Model_ApplyUICamera(self.PreviewModel, self.PreviewModel.cameraID);
+	end
 end
 
 function TWLModPickerMixin:ShowModel(modInfo)
@@ -634,9 +641,9 @@ function TWLModPickerMixin:ShowModel(modInfo)
 	local model = self.PreviewModel;
 	if (model.modID == modInfo.modID) then return; end;
 	
+	model.itemID = self.itemID;
 	model.modID = modInfo.modID;
 	model:Undress();
-	
 	if self.isArmor then
 		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(modInfo.sourceID);
 		model:SetUnit("player", false);
@@ -649,11 +656,10 @@ function TWLModPickerMixin:ShowModel(modInfo)
 		model:TryOn(modInfo.sourceID)
 	else
 		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(modInfo.sourceID);
-		if not skipModel then
-			model:SetItemAppearance(modInfo.visualID)
-		end
+		model:SetItemAppearance(modInfo.visualID);
 	end
 
+	model.cameraID = cameraID;
 	Model_ApplyUICamera(model, cameraID);
 end
 
@@ -685,6 +691,81 @@ function TWL:OnEnable()
 	_wishListDataProvider:LoadSaveData(self.settings.wishList) 
 end
 
+
+TWLPopUpMixin = {}
+
+function TWLPopUpMixin:FadeOutDone()
+	self:Hide();
+end
+
+function TWLPopUpMixin:OnShow()
+	self.FadeInAnim:Play();
+end
+
+function TWLPopUpMixin:Announce(text)	
+	self.FadeInAnim:Stop();
+	self.FadeOutAnim:Stop();
+	self:Hide();
+	self.Text:SetText(text);
+	self:Show();
+end
+
+
+TWLAddBoxMixin = {}
+
+function TWLAddBoxMixin:OnLoad()
+	self:SetTextInsets(2, 20, 0, 0);
+	self.Instructions:SetText("Add itemID");
+	self.Instructions:ClearAllPoints();
+	self.Instructions:SetPoint("TOPLEFT", self, "TOPLEFT", 2, 0);
+	self.Instructions:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -20, 0);
+end
+
+function TWLAddBoxMixin:OnEscapePressed()
+	self:SetText("");
+	EditBox_ClearFocus(self);
+end
+
+function TWLAddBoxMixin:OnEnterPressed()
+	local input = self:GetText();
+	self:SetText("");
+	EditBox_ClearFocus(self);
+	if input:find("(%d+)") then
+		local itemID, modID = string.match(input, "(%d+) (%d+)");
+		itemID = itemID or input;
+		itemID = tonumber(itemID);
+		
+		local mods = {modID}
+		if not modID then
+				
+			for i=0, 10 do
+				local appearanceID, sourceID = C_TransmogCollection.GetItemInfo(itemID, i);
+				if appearanceID then
+					tinsert(mods, {["modID"] = i, ["visualID"] = appearanceID, ["sourceID"] = sourceID});
+				end
+			end
+			
+		end
+	
+		
+		if #mods == 1 then
+			-- If there is only 1 itemModID, just use that one!
+			_wishListDataProvider:AddItemIDToList(tonumber(itemID), tonumber(mods[1]));
+		elseif (#mods > 1) then
+			TransmogWishListModPicker:Setup(itemID, mods);
+		else 
+			-- If there are no mods, the item has no appearance;
+			TransmogWishListPopUp:Announce("This ItemID does not have any appearances.");
+		end
+	end
+end
+
+function TWLAddBoxMixin:OnTextChanged()
+	InputBoxInstructions_OnTextChanged(self);
+end
+
+
+
 local function slashcmd(msg, editbox)
 	-- if msg:find("wowhead") then
 
@@ -693,6 +774,8 @@ local function slashcmd(msg, editbox)
 		-- print("url", itemID, modID)
 		-- _wishListDataProvider:AddItemIDToList(tonumber(itemID), tonumber(modID));
 	-- else
+	
+	--[[
 	if msg:find("(%d+)") then
 		local itemID, modID = string.match(msg, "(%d+) (%d+)");
 		itemID = itemID or msg;
@@ -713,9 +796,10 @@ local function slashcmd(msg, editbox)
 		if #mods == 1 then
 			_wishListDataProvider:AddItemIDToList(tonumber(itemID), tonumber(mods[1]));
 		elseif (#mods > 1) then
-			--print("Show window for ".. #mods .. " mods");
+			-- print("Show window for ".. #mods .. " mods");
 			TransmogWishListModPicker:Setup(itemID, mods);
 		end
+		]]--
 	
 	--/run local msg = "81654 4"; print(msg:match("(%d+) (%d+)"))
 	-- elseif msg then
@@ -727,7 +811,7 @@ local function slashcmd(msg, editbox)
 		-- for k, v in pairs(WishList) do
 			-- print(k);
 		-- end
-	end
+	--end
 end
 SLASH_TWLSLASH1 = '/twl';
 SlashCmdList["TWLSLASH"] = slashcmd

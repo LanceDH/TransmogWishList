@@ -7,6 +7,7 @@
 	 
 	<Script file="Libs\LibStub\LibStub.lua"/>
 	<Include file="libs\AceAddon-3.0\AceAddon-3.0.xml"/>
+	<Include file="libs\AceDB-3.0\AceDB-3.0.xml"/>
 	<Script file="TransmogWishList.lua"/>
 
 	<Frame name="TWLCollectionsBackgroundTemplate" inherits="InsetFrameTemplate" virtual="true">
@@ -423,7 +424,7 @@
 	</Button>
 	
 	<Button name="TWLModButtonTemplate" mixin="TWLModButtonMixin" inherits="UIMenuButtonStretchTemplate"  virtual="true" hidden="false" enableMouse="true" parentArray="ModButtons">
-		<Size x="24" y="22"/>
+		<Size x="26" y="24"/>
 		<Anchors>
 			<Anchor point="CENTER" x="0" y="0"/>
 		</Anchors>
@@ -436,7 +437,7 @@
 	</Button>
 	
 	<Frame name="TWLModButtonContainerTemplate" virtual="true" hidden="false">
-		<Size x="48" y="110" />
+		<Size x="52" y="96" />
 		<!--<Layers>
 			<Layer level="BACKGROUND">
 				<Texture>
@@ -467,12 +468,12 @@
 			</Button>
 			<Button parentKey="ModID5" inherits="TWLModButtonTemplate">
 				<Anchors>
-					<Anchor point="TOP" relativeKey="$parent.ModID4" relativePoint="BOTTOM"/>
+					<Anchor point="LEFT" relativeKey="$parent.ModID1" relativePoint="RIGHT"/>
 				</Anchors>
 			</Button>
 			<Button parentKey="ModID6" inherits="TWLModButtonTemplate">
 				<Anchors>
-					<Anchor point="LEFT" relativeKey="$parent.ModID1" relativePoint="RIGHT"/>
+					<Anchor point="TOP" relativeKey="$parent.ModID5" relativePoint="BOTTOM"/>
 				</Anchors>
 			</Button>
 			<Button parentKey="ModID7" inherits="TWLModButtonTemplate">
@@ -483,16 +484,6 @@
 			<Button parentKey="ModID8" inherits="TWLModButtonTemplate">
 				<Anchors>
 					<Anchor point="TOP" relativeKey="$parent.ModID7" relativePoint="BOTTOM"/>
-				</Anchors>
-			</Button>
-			<Button parentKey="ModID9" inherits="TWLModButtonTemplate">
-				<Anchors>
-					<Anchor point="TOP" relativeKey="$parent.ModID8" relativePoint="BOTTOM"/>
-				</Anchors>
-			</Button>
-			<Button parentKey="ModID10" inherits="TWLModButtonTemplate">
-				<Anchors>
-					<Anchor point="TOP" relativeKey="$parent.ModID9" relativePoint="BOTTOM"/>
 				</Anchors>
 			</Button>
 		</Frames>
@@ -603,6 +594,9 @@
 								<Scripts>
 									<OnEnter />
 									<OnLeave />
+									<OnModelLoaded>
+										self:GetParent():OnModelLoaded();
+									</OnModelLoaded>
 								</Scripts>
 							</DressUpModel>
 							<Frame parentKey="ModList" inherits="TWLModButtonContainerTemplate">
@@ -665,9 +659,25 @@
 					</Frame>
 				</Frames>
 				<Scripts>
-					<OnMouseWheel />
+					<OnMouseWheel>
+						<!-- This just needs to do nothing to steal mousewheel -->
+						self = self;
+					</OnMouseWheel>
 				</Scripts>
 			</Frame>
+		
+			<EditBox parentKey="AddBox" inherits="InputBoxInstructionsTemplate" mixin="TWLAddBoxMixin" autoFocus="false" letters="10">
+				<Size x="100" y="20"/>
+				<Anchors>
+					<Anchor point="TOPRIGHT" x="-70" y="-40"/>
+				</Anchors>
+				<Scripts>
+					<OnLoad method="OnLoad"/>
+					<OnEscapePressed method="OnEscapePressed"/>
+					<OnEnterPressed method="OnEnterPressed"/>
+					<OnTextChanged method="OnTextChanged"/>
+				</Scripts>
+			</EditBox>
 		
 			<Button name="$parentBackButton" parentKey="backButton" inherits="UIMenuButtonStretchTemplate" text="Collection">
 				<Size x="93" y="27"/>
@@ -821,5 +831,54 @@
 			</OnClick>	
 		</Scripts>						
 	</Button>
+	
+	<Frame name="TransmogWishListPopUp" mixin="TWLPopUpMixin" hidden="true">
+		<Size x="500" y="20"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Text" inherits="GameFontWhiteSmall" text="">
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="BGTop" file="Interface\COMMON\NameShadow">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Text" x="-20" y="5"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Text" relativePoint="TOPRIGHT" x="20" y="-5"/>
+					</Anchors>
+					<TexCoords left="0" right="1" top="1" bottom="0" />
+				</Texture>
+				<Texture parentKey="BGBot" file="Interface\COMMON\NameShadow">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Text" x="-20" y="-5"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Text" x="20" y="-5"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Animations>
+			<AnimationGroup parentKey="FadeInAnim" looping="NONE" setToFinalAlpha="true">
+				<Alpha fromAlpha="0" toAlpha="1"  Duration="0.1" order="0" />
+				<Scripts>
+					<OnFinished>
+						self:GetParent().FadeOutAnim:Play();
+					</OnFinished>
+				</Scripts>
+			</AnimationGroup>
+			<AnimationGroup parentKey="FadeOutAnim" looping="NONE" setToFinalAlpha="true">
+				<Alpha fromAlpha="1" toAlpha="0"  Duration="1" order="0" startDelay="2" />
+				<Scripts>
+					<OnFinished>
+						self:GetParent():FadeOutDone();
+					</OnFinished>
+				</Scripts>
+			</AnimationGroup>
+		</Animations>
+		<Scripts>
+			<OnShow method="OnShow"/>
+		</Scripts>
+	</Frame>
 	
  </Ui>
