@@ -277,7 +277,7 @@
 				</Anchors>
 				<Layers>
 					<Layer level="ARTWORK">
-						<Texture file="Interface\FriendsFrame\ClearBroadcastIcon" alpha="0.5" parentKey="texture">
+						<Texture file="Interface\FriendsFrame\ClearBroadcastIcon" alpha="0.6" parentKey="texture">
 							<Size>
 								<AbsDimension x="17" y="17"/>
 							</Size>
@@ -435,7 +435,7 @@
 		</Anchors>
 		<Layers>
 			<Layer level="OVERLAY">
-				<Texture parentKey="SelectTexture" file="Interface\BUTTONS\CheckButtonGlow" alpha="0.5" alphaMode="ADD">
+				<Texture parentKey="SelectTexture" file="Interface\BUTTONS\CheckButtonGlow" alpha="0.6" alphaMode="ADD">
 					<!--<Size>
 						<AbsDimension x="15" y="15"/>
 					</Size>-->
@@ -507,34 +507,6 @@
 		</Frames>
 	</Frame>
 	
-	<!--
-	<Button name="TSP_SettingsButton" inherits="UIMenuButtonStretchTemplate" text="TSP" frameStrata="HIGH">
-		<Size x="60" y="22"/>
-		
-		<Layers>
-			<Layer level="ARTWORK">
-				<Texture parentKey="Icon" file="Interface\ChatFrame\ChatFrameExpandArrow">
-					<Size x="10" y="12"/>
-					<Anchors>
-						<Anchor point="RIGHT" relativeKey="$parent.Right" relativePoint="RIGHT" x="-5"/>
-					</Anchors>
-				</Texture>
-				<FontString parentKey="filteredText" inherits="GameFontNormalSmall" justifyH="CENTER">
-					<Anchors>
-						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="10" y="2"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
-		<Scripts>
-			<OnClick> 
-				Lib_ToggleDropDownMenu(1, nil, TSP_SettingsDropDown, "TSP_SettingsButton", 74, 15);
-			</OnClick>	
-		</Scripts>						
-	</Button>
-	<Frame name="TSP_SettingsDropDown" inherits="Lib_UIDropDownMenuTemplate" enableMouse="true" hidden="true"/>
-	-->
-	
 	<Frame name="TransmogWishlistButtonTemplate" virtual="true">
 		<Size x="250" y="46"/>
 		<Layers>
@@ -567,6 +539,96 @@
 		</Scripts>
 	</Frame>
 	
+	<Frame name="TransmogWishlistShadowFrameTemplate" virtual="true">
+		<Layers>
+			<Layer level="ARTWORK" >
+				<FontString parentKey="Title" inherits="GameFontNormalLarge" text="Your list is empty!"  justifyH="CENTER">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="TOPRIGHT"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="Info" inherits="GameFontNormal" text="TWL_INFO1"  justifyH="LEFT">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Title" relativePoint="BOTTOMLEFT" y="-5"/>
+						<Anchor point="TOPRIGHT" relativeKey="$parent.Title" relativePoint="BOTTOMRIGHT" y="-5"/>
+					</Anchors>
+				</FontString>
+			</Layer>	
+			<Layer level="BACKGROUND">
+				<Texture parentKey="BGTL" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Size x="20" y="20" />
+					<Anchors>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Title" relativePoint="TOPLEFT"/>
+					</Anchors>
+					<TexCoords left="0" right="0.3" top="0" bottom="0.3" />
+				</Texture>
+				<Texture parentKey="BGTR" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Size x="20" y="20" />
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.Title" relativePoint="TOPRIGHT"/>
+					</Anchors>
+					<TexCoords left="0.7" right="1" top="0" bottom="0.3" />
+				</Texture>
+				<Texture parentKey="BGBL" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Size x="20" y="20" />
+					<Anchors>
+						<Anchor point="TOPRIGHT" relativeKey="$parent.Info" relativePoint="BOTTOMLEFT" y="-5"/>
+					</Anchors>
+					<TexCoords left="0" right="0.3" top="0.7" bottom="1" />
+				</Texture>
+				<Texture parentKey="BGBR" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Size x="20" y="20" />
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Info" relativePoint="BOTTOMRIGHT" y="-5"/>
+					</Anchors>
+					<TexCoords left="0.7" right="1" top="0.7" bottom="1" />
+				</Texture>
+				
+				<Texture parentKey="BGT" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.BGTL" relativePoint="TOPRIGHT"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.BGTR" relativePoint="BOTTOMLEFT"/>
+					</Anchors>
+					<TexCoords left="0.3" right="0.7" top="0" bottom="0.3" />
+				</Texture>
+				<Texture parentKey="BGB" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.BGBL" relativePoint="TOPRIGHT"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.BGBR" relativePoint="BOTTOMLEFT"/>
+					</Anchors>
+					<TexCoords left="0.3" right="0.7" top="0.7" bottom="1" />
+				</Texture>
+				<Texture parentKey="BGL" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.BGTL" relativePoint="BOTTOMLEFT"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.BGBL" relativePoint="TOPRIGHT"/>
+					</Anchors>
+					<TexCoords left="0" right="0.3" top="0.3" bottom="0.7" />
+				</Texture>
+				<Texture parentKey="BGR" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.BGTR" relativePoint="BOTTOMLEFT"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.BGBR" relativePoint="TOPRIGHT"/>
+					</Anchors>
+					<TexCoords left="0.7" right="1" top="0.3" bottom="0.7" />
+				</Texture>
+				<Texture parentKey="BGC" file="Interface\COMMON\icon-shadow" alpha="0.6">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.BGTL" relativePoint="BOTTOMRIGHT"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.BGBR" relativePoint="TOPLEFT"/>
+					</Anchors>
+					<TexCoords left="0.3" right="0.7" top="0.3" bottom="0.7" />
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+		</Scripts>
+	</Frame>
+	
+	
+	
+	
 	<Frame name="TransmogWishListFrame" mixin="TransmogWishListMixin" hidden="true" inherits="TWLCollectionsBackgroundTemplate" enableMouse="true">
 		<Layers>
 			<Layer level="ARTWORK">
@@ -585,6 +647,14 @@
 		</Layers>
 	
 		<Frames>
+			
+			<Frame parentKey="EmptyListInfo" inherits = "TransmogWishlistShadowFrameTemplate">
+				<Size x="250" y="200" />
+				<Anchors>
+					<Anchor point="CENTER" />
+				</Anchors>
+			</Frame>
+			
 			<Frame parentKey="modpickerOverlay" hidden="true" frameLevel="20" enableMouse="true">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativePoint="TOPLEFT"/>
@@ -854,7 +924,7 @@
 		<Size x="500" y="20"/>
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString parentKey="Text" inherits="GameFontWhiteSmall" text="">
+				<FontString parentKey="Text" inherits="GameFontWhiteSmall" maxLines="1" text="">
 					<Anchors>
 						<Anchor point="CENTER"/>
 					</Anchors>
@@ -898,5 +968,78 @@
 			<OnShow method="OnShow"/>
 		</Scripts>
 	</Frame>
+	
+	<Frame name="TransmogWishListSetsPopUp" mixin="TWLPopUpMixin" hidden="false">
+		<Size x="300" y="20"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Text" inherits="GameFontWhiteSmall" maxLines="1" text="">
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="BGTop" file="Interface\COMMON\NameShadow">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Text" x="-20" y="5"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Text" relativePoint="TOPRIGHT" x="20" y="-5"/>
+					</Anchors>
+					<TexCoords left="0" right="1" top="1" bottom="0" />
+				</Texture>
+				<Texture parentKey="BGBot" file="Interface\COMMON\NameShadow">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Text" x="-20" y="-5"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Text" x="20" y="-5"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Animations>
+			<AnimationGroup parentKey="FadeInAnim" looping="NONE" setToFinalAlpha="true">
+				<Alpha fromAlpha="0" toAlpha="1"  Duration="0.1" order="0" />
+				<Scripts>
+					<OnFinished>
+						self:GetParent().CollectedAnim:Play();
+					</OnFinished>
+				</Scripts>
+			</AnimationGroup>
+			<AnimationGroup parentKey="CollectedAnim" looping="NONE" setToFinalAlpha="true">
+				<Alpha fromAlpha="1" toAlpha="0"  Duration="1" order="0" startDelay="2" />
+				<Scripts>
+					<OnFinished>
+						self:GetParent():CollectedAnimOnEnd();
+					</OnFinished>
+				</Scripts>
+			</AnimationGroup>
+		</Animations>
+		<Scripts>
+			<OnShow method="OnShow"/>
+		</Scripts>
+	</Frame>
+	
+	<Button name="TWLSetsWishButton" mixin="TWLSetsWishButtonMixin" hidden="false" enableMouse="true">
+		<Size x="22" y="22"/>
+		<Anchors>
+			<Anchor point="TOPLEFT" x="5" y="-5"/>
+		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<Texture file="Interface\Addons\TransmogWishList\Images\WishIcon" alpha="0.4" parentKey="texture">
+					<Size x="20" y="20"/>
+					<Anchors>
+						<Anchor point="CENTER" />
+					</Anchors>
+					<TexCoords left="1" right="0" top="0" bottom="1" />
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnEnter method="OnEnter" />
+			<OnLeave method="OnLeave" />
+			<OnMouseDown method="OnMouseDown" />
+			<OnMouseUp method="OnMouseUp" />
+		</Scripts>
+	</Button>
 	
  </Ui>

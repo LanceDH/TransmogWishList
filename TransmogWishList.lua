@@ -27,6 +27,13 @@ local WARDROBE_MODEL_SETUP_GEAR = {
 local FORMAT_MODID_SELECTED = "Selected: |cFFFFD100%d|r ";
 local FORMAT_MODPICKER_INFO = "ItemID |cFFFFD100%d|r has |cFFFFD100%d|r appearance mods.|nPlease select which one you'd like to add to your list.";
 local FORMAT_APPEARANCE_ADDED = "Appearance of |c%s%s|r added to your wishlist.";
+TWL_INFO1 = [[Add appearances by:
+
+ - Hovering over a locked appearance in the Items tab, and clicking the star icon in the top right.
+ 
+ - Selecting a set in the Sets tab and clicking the star icon in the top left.
+ 
+ - Typing an itemID in the textbox on the top right and pressing enter."]]
 
 local TWL_DEFAULTS = {
 	global = {	
@@ -42,6 +49,10 @@ function TWL:UpdateAllWishButtons()
 		model.TWLWishButton:Update();
 	end
 end
+
+-----------------------------------------------------------------------
+--	TransmogWishListDataProviderMixin
+-----------------------------------------------------------------------
 
 TransmogWishListDataProviderMixin = {}
 
@@ -142,6 +153,31 @@ function TransmogWishListDataProviderMixin:LoadSaveData(data)
 	self.loadingSaveData = false;
 end
 
+function TransmogWishListDataProviderMixin:AddSetIDToList(setID)
+	setID = tonumber(setID);
+	if not setID then return; end
+
+	local sources = C_TransmogSets.GetSetSources(setID);
+	local total, numAdded = 0, 0;
+	for sourceID, isCollected in pairs(sources) do
+		total = total + 1;
+		if not isCollected then
+			local sourceInfo = C_TransmogCollection.GetSourceInfo(sourceID);
+			local wasAdded = self:AddItemIDToList(sourceInfo.itemID, sourceInfo.itemModID);
+			if wasAdded then
+				numAdded = numAdded + 1;
+			end
+		end
+	end
+	if numAdded > 0 then
+		local setInfo = C_TransmogSets.GetSetInfo(setID);
+		TransmogWishListSetsPopUp:Announce("Added missing appearances of " .. setInfo.name);
+	else
+		TransmogWishListSetsPopUp:Announce("No new appearces were added to the list.");
+	end
+	
+end
+
 function TransmogWishListDataProviderMixin:AddVisualIDToList(visualID)
 	if not type(visualID) == "number" then return; end
 	
@@ -185,6 +221,7 @@ function TransmogWishListDataProviderMixin:AddItemIDToList(itemID, modID)
 		TransmogWishListFrame:Update();
 		-- Update in case we added something that was currently visible
 		TWL:UpdateAllWishButtons();
+		return true;
 	else
 		TransmogWishListPopUp:Announce("The appearance is already on your wishlist.");
 	end
@@ -206,6 +243,9 @@ end
 
 local _wishListDataProvider = CreateFromMixins(TransmogWishListDataProviderMixin);
 
+-----------------------------------------------------------------------
+--	TransmogWishListMixin
+-----------------------------------------------------------------------
 
 TransmogWishListMixin = {};
 
@@ -235,7 +275,6 @@ function TransmogWishListMixin:OnEvent(event, ...)
 		end
 		return;
 	end
-	--print(event, ...)
 	if (event == "TRANSMOG_COLLECTION_UPDATED") then
 		self:Update();
 		local appearanceID, c = C_TransmogCollection.GetLatestAppearance();
@@ -329,9 +368,9 @@ end
 function TransmogWishListMixin:StickToItemCollectionFrame()
 	-- Stuff we have to after Blizzard_Collections is loaded as it doesn't do so until you open it the first time
 	local collectionFrame = WardrobeCollectionFrame.ItemsCollectionFrame;
+	local setsFrame = WardrobeCollectionFrame.SetsCollectionFrame;
 	
 	self:SetParent(collectionFrame);
-	--WardrobeCollectionFrame.ItemsCollectionFrame:Hide()
 	self:SetFrameLevel(15);
 	self:SetAllPoints();
 	
@@ -342,6 +381,13 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 	TransmogWishListPopUp:SetPoint("BOTTOM", collectionFrame, "BOTTOM", 0, 15);
 	TransmogWishListPopUp:SetFrameLevel(20)
 	
+	TransmogWishListSetsPopUp:SetParent(setsFrame.Model);
+	TransmogWishListSetsPopUp:SetPoint("BOTTOM", setsFrame.Model, "BOTTOM", 0, 15);
+	TransmogWishListSetsPopUp:SetFrameLevel(20)
+	
+	TWLSetsWishButton:SetParent(setsFrame.Model);
+	TWLSetsWishButton:SetPoint("TOPLEFT", setsFrame.Model, "TOPLEFT", 5, -5);
+
 	for k, model in ipairs(collectionFrame.Models) do
 		model.TWLWishButton = CreateFrame("FRAME", nil, model, "TWLWishButtonTemplate");
 		model:HookScript("OnEnter", function(self)
@@ -380,6 +426,8 @@ end
 function TransmogWishListMixin:Update()
 	if not CollectionsJournal or not CollectionsJournal:IsShown() or not self:IsShown() then return end;
 	local wishList = _wishListDataProvider.wishList;
+	
+	self.EmptyListInfo:SetShown(#wishList == 0);
 	self.PagingFrame:SetMaxPages(ceil(#wishList / self.PAGE_SIZE));
 	local indexOffset = (self.PagingFrame:GetCurrentPage() - 1) * self.PAGE_SIZE;
 	for i=1, self.PAGE_SIZE do
@@ -388,8 +436,6 @@ function TransmogWishListMixin:Update()
 		local itemInfo = wishList[index];
 		model:Hide();
 		if itemInfo then
-			
-			--model:SetUnit("none", false); 
 			model.itemInfo = itemInfo;
 			model:Show();
 			model:SetKeepModelOnHide(true);
@@ -406,6 +452,9 @@ function TransmogWishListMixin:RemoveCollected()
 	end
 end
 
+-----------------------------------------------------------------------
+--	TransMogWishListModelMixin
+-----------------------------------------------------------------------
 
 TransMogWishListModelMixin = {};
 
@@ -428,17 +477,12 @@ end
 
 function TransMogWishListModelMixin:OnModelLoaded()
 	if (self.cameraID) then
-		--self:ShowWishlistItem(true)
 		Model_ApplyUICamera(self, self.cameraID);
 	end
 end
 
 function TransMogWishListModelMixin:OnEnter()
 	local sources = _wishListDataProvider:GetAppearanceSources(self.itemInfo.visualID);
-	
-	--UIParentLoadAddOn("Blizzard_DebugTools");
-	--DisplayTableInspectorWindow(sources)
-	
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	local itemName, _, titleQuality = GetItemInfo(self.itemInfo.itemID);
 	GameTooltip:SetText(itemName, GetItemQualityColor(titleQuality or 1));
@@ -529,6 +573,9 @@ function TransMogWishListModelMixin:ShowWishlistItem()
 	
 end
 
+-----------------------------------------------------------------------
+--	TransmogWishListPagingMixin
+-----------------------------------------------------------------------
 		
 TransmogWishListPagingMixin = { };
 
@@ -599,14 +646,14 @@ function TransmogWishListPagingMixin:Update()
 	end
 end
 		
+-----------------------------------------------------------------------
+--	TWLWishButtonMixin
+-----------------------------------------------------------------------
 		
 TWLWishButtonMixin = {}
 
 function TWLWishButtonMixin:Update(enteredParent)
-	
 	local visualInfo = self:GetParent().visualInfo;
-	
-	-- no isHideVisual == enchant
 	if (not visualInfo or visualInfo.isCollected or visualInfo.isHideVisual == nil) then 
 		self:Hide();
 		return; 
@@ -636,7 +683,6 @@ end
 function TWLWishButtonMixin:OnLeave()
 	self:Hide();
 	GameTooltip:Hide();
-	--self.texture:SetAlpha(self.isWished and 0.75 or 0.4);
 	self:Update()
 	self.texture:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0);
 end
@@ -660,6 +706,43 @@ function TWLWishButtonMixin:OnMouseUp()
 	self:Update(true);
 end
 
+-----------------------------------------------------------------------
+--	TWLSetsWishButtonMixin
+-----------------------------------------------------------------------
+		
+TWLSetsWishButtonMixin = {}
+		
+function TWLSetsWishButtonMixin:OnEnter()
+	self:Show();
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	GameTooltip:SetText("Add to wish list");
+	GameTooltip:AddLine("Add all locked appearances of this set.");
+	GameTooltip:Show();
+	self.texture:SetAlpha(1.0);
+end
+
+function TWLSetsWishButtonMixin:OnLeave()
+	--self:Hide();
+	GameTooltip:Hide();
+	self.texture:SetAlpha(0.4);
+	--self.texture:SetAlpha(self.isWished and 0.75 or 0.4);
+	self.texture:SetPoint("CENTER", self, "CENTER", 0, 0);
+end
+
+function TWLSetsWishButtonMixin:OnMouseDown()
+	self.texture:SetPoint("CENTER", self, "CENTER", 1, -1);
+end
+
+function TWLSetsWishButtonMixin:OnMouseUp()
+	self.texture:SetPoint("CENTER", self, "CENTER", 0, 0);
+	print(self:GetParent().selectedSetID)
+	local setID = self:GetParent():GetParent().selectedSetID;
+	_wishListDataProvider:AddSetIDToList(setID);
+end
+
+-----------------------------------------------------------------------
+--	TWLModPickerMixin
+-----------------------------------------------------------------------
 
 TWLModPickerMixin = {};
 
@@ -753,6 +836,9 @@ function TWLModPickerMixin:ShowModel(modInfo)
 	Model_ApplyUICamera(model, cameraID);
 end
 
+-----------------------------------------------------------------------
+--	TWLModButtonMixin
+-----------------------------------------------------------------------
 
 TWLModButtonMixin = {};
 
@@ -794,13 +880,22 @@ function TWLPopUpMixin:OnShow()
 end
 
 function TWLPopUpMixin:Announce(text)	
+	
+	
 	self.FadeInAnim:Stop();
 	self.CollectedAnim:Stop();
 	self:Hide();
+	self.Text:SetWidth(0);
 	self.Text:SetText(text);
+	if (self.Text:GetWidth() > self:GetWidth()) then
+		self.Text:SetWidth(self:GetWidth());
+	end
 	self:Show();
 end
 
+-----------------------------------------------------------------------
+--	TWLAddBoxMixin
+-----------------------------------------------------------------------
 
 TWLAddBoxMixin = {}
 
@@ -853,55 +948,3 @@ end
 function TWLAddBoxMixin:OnTextChanged()
 	InputBoxInstructions_OnTextChanged(self);
 end
-
-
-
-local function slashcmd(msg, editbox)
-	-- if msg:find("wowhead") then
-
-		-- local itemID = msg:match("=(%d+)/");
-		-- local modID = msg:match("(%d):");
-		-- print("url", itemID, modID)
-		-- _wishListDataProvider:AddItemIDToList(tonumber(itemID), tonumber(modID));
-	-- else
-	
-	--[[
-	if msg:find("(%d+)") then
-		local itemID, modID = string.match(msg, "(%d+) (%d+)");
-		itemID = itemID or msg;
-		
-		local mods = {modID}
-		if not modID then
-				
-			for i=0, 10 do
-				local appearanceID, sourceID = C_TransmogCollection.GetItemInfo(itemID, i);
-				if appearanceID then
-					tinsert(mods, {["modID"] = i, ["visualID"] = appearanceID, ["sourceID"] = sourceID});
-				end
-			end
-			
-		end
-
-		-- If there is only 1 itemModID, just use that one!
-		if #mods == 1 then
-			_wishListDataProvider:AddItemIDToList(tonumber(itemID), tonumber(mods[1]));
-		elseif (#mods > 1) then
-			-- print("Show window for ".. #mods .. " mods");
-			TransmogWishListModPicker:Setup(itemID, mods);
-		end
-		]]--
-	
-	--/run local msg = "81654 4"; print(msg:match("(%d+) (%d+)"))
-	-- elseif msg then
-		-- local ids = {147064, 103219, 146994, 147031, 140887, 136210, 126760, 124389, 125637, 126057, 140537, 140542, 140554, 138358, 138360, 139162, 95338, 140560, 95474, 147205, 71287}
-		-- for k, id in ipairs(ids) do
-			-- _wishListDataProvider:AddItemIDToList(id);
-		-- end
-	-- else
-		-- for k, v in pairs(WishList) do
-			-- print(k);
-		-- end
-	--end
-end
-SLASH_TWLSLASH1 = '/twl';
-SlashCmdList["TWLSLASH"] = slashcmd
