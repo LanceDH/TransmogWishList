@@ -305,6 +305,8 @@ function TransmogWishListMixin:OnEvent(event, ...)
 			else
 				print("You unlocked multiple appearances from your wish list!");
 			end
+			PlaySound("FX_Shimmer_Whoosh_Generic");
+			--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
 		end
 		
 		return;
@@ -417,7 +419,8 @@ function TransmogWishListMixin:OnMouseWheel(delta)
 end
 
 function TransmogWishListMixin:OnPageChanged(userAction)
-	PlaySound(SOUNDKIT.UI_TRANSMOG_PAGE_TURN);
+	PlaySound("Ui_Transmog_PageTurn");
+	--PlaySound(SOUNDKIT.UI_TRANSMOG_PAGE_TURN);
 	if ( userAction ) then
 		self:Update();
 	end
@@ -702,7 +705,8 @@ function TWLWishButtonMixin:OnMouseUp()
 			_wishListDataProvider:AddVisualIDToList(self.visualInfo.visualID);
 		end
 	end
-	
+	PlaySound("PutDownRing");
+	--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
 	self:Update(true);
 end
 
@@ -735,9 +739,10 @@ end
 
 function TWLSetsWishButtonMixin:OnMouseUp()
 	self.texture:SetPoint("CENTER", self, "CENTER", 0, 0);
-	print(self:GetParent().selectedSetID)
 	local setID = self:GetParent():GetParent().selectedSetID;
 	_wishListDataProvider:AddSetIDToList(setID);
+	PlaySound("PutDownRing");
+	--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
 end
 
 -----------------------------------------------------------------------
@@ -845,6 +850,8 @@ TWLModButtonMixin = {};
 function TWLModButtonMixin:OnClick()
 	TransmogWishListModPicker.selected = self.modInfo;
 	TransmogWishListModPicker:Update();
+	PlaySound("igMainMenuOptionCheckBoxOn");
+	--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
 end
 
 function TWLModButtonMixin:OnEnter()

@@ -289,6 +289,8 @@
 				</Layers>
 				<Scripts>
 					<OnClick>
+						PlaySound("PickUpRing");
+						<!--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);-->
 						self:GetParent():RemoveButtonOnClick();
 					</OnClick>
 					<OnEnter>
@@ -436,9 +438,6 @@
 		<Layers>
 			<Layer level="OVERLAY">
 				<Texture parentKey="SelectTexture" file="Interface\BUTTONS\CheckButtonGlow" alpha="0.6" alphaMode="ADD">
-					<!--<Size>
-						<AbsDimension x="15" y="15"/>
-					</Size>-->
 					<Anchors>
 						<Anchor point="TOPLEFt" x="-5" y="5"/>
 						<Anchor point="BOTTOMRIGHT" x="5" y="-5"/>
@@ -456,13 +455,6 @@
 	
 	<Frame name="TWLModButtonContainerTemplate" virtual="true" hidden="false">
 		<Size x="52" y="96" />
-		<!--<Layers>
-			<Layer level="BACKGROUND">
-				<Texture>
-					<Color r="1" g="1" b="1" a="1"/>
-				</Texture>
-			</Layer>
-		</Layers>-->
 		<Frames>
 			<Button parentKey="ModID1" inherits="TWLModButtonTemplate">
 				<Anchors>
@@ -699,6 +691,8 @@
 								</Anchors>
 								<Scripts>
 									<OnClick>
+										PlaySound("igMainMenuOptionCheckBoxOn");
+										<!--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);-->
 										self:GetParent():AddButtonOnClick();
 									</OnClick>
 								</Scripts>
@@ -710,6 +704,8 @@
 								</Anchors>
 								<Scripts>
 									<OnClick>
+										PlaySound("igMainMenuOptionCheckBoxOn");
+										<!--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);-->
 										self:GetParent():Close();
 									</OnClick>
 								</Scripts>
@@ -785,7 +781,7 @@
 				</Layers>
 				<Scripts>
 					<OnClick> 
-						<!--PlaySound("igMainMenuOptionCheckBoxOn");-->
+						PlaySound("igMainMenuOptionCheckBoxOn");
 						<!--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);-->
 						self:GetParent():Hide();
 					</OnClick>	
@@ -913,7 +909,7 @@
 		</Layers>
 		<Scripts>
 			<OnClick> 
-				<!--PlaySound("igMainMenuOptionCheckBoxOn");-->
+				PlaySound("igMainMenuOptionCheckBoxOn");
 				<!--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);-->
 				TransmogWishListFrame:Show();
 			</OnClick>	
