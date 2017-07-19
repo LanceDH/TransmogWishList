@@ -235,18 +235,18 @@
 				</Texture>
 			</Layer>
 			<Layer level="OVERLAY" textureSubLevel="1">
-				<FontString parentKey="NewString" inherits="GameFontHighlight" maxLines="1" justifyH="CENTER" text="NEW_CAPS" hidden="true">
+				<FontString parentKey="CollectedString" inherits="GameFontHighlight" maxLines="1" justifyH="CENTER" text="COLLECTED" hidden="true">
 					<Shadow>
 						<Color r="0.32" g="0.5" b="1.0"/>
 					</Shadow>
 					<Anchors>
-						<Anchor point="TOP" x="0" y="8"/>
+						<Anchor point="BOTTOM" x="0" y="5"/>
 					</Anchors>
 				</FontString>
-				<Texture parentKey="NewGlow" atlas="collections-newglow" hidden="true">
+				<Texture parentKey="CollectedGlow" atlas="collections-newglow" hidden="true">
 					<Anchors>
-						<Anchor point="TOPLEFT" relativeKey="$parent.NewString" x="-20" y="10"/>
-						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.NewString" x="20" y="-10"/>
+						<Anchor point="TOPLEFT" relativeKey="$parent.CollectedString" x="-20" y="10"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.CollectedString" x="20" y="-10"/>
 					</Anchors>
 				</Texture>
 			</Layer>
@@ -259,17 +259,6 @@
 			</Layer>
 		</Layers>
 		<Frames>
-			<Frame parentKey="Favorite" setAllPoints="true">
-				<Layers>
-					<Layer level="ARTWORK">
-						<Texture parentKey="Icon" atlas="collections-icon-favorites" useAtlasSize="true" hidden="true">
-							<Anchors>
-								<Anchor point="TOPLEFT" x="-12" y="13" relativePoint="TOPLEFT"/>
-							</Anchors>
-						</Texture>
-					</Layer>
-				</Layers>
-			</Frame>
 			<Frame parentKey="HideVisual" setAllPoints="true">
 				<Layers>
 					<Layer level="ARTWORK">
@@ -325,11 +314,27 @@
 				</Scripts>
 			</Button>
 		</Frames>
+		<Animations>
+			<AnimationGroup parentKey="CollectedAnim" looping="NONE" setToFinalAlpha="true">
+				<Alpha childKey="CollectedString" fromAlpha="0" toAlpha="1"  Duration="0.2" order="1" startDelay="0.2" />
+				<Alpha childKey="CollectedGlow" fromAlpha="0" toAlpha="1"  Duration="0.2" order="1" startDelay="0.2" />
+				<Alpha fromAlpha="1" toAlpha="0"  Duration="0.5" order="2" startDelay="1" />
+				<Scripts>
+					<OnFinished>
+						self:GetParent():CollectedAnimOnEnd();
+					</OnFinished>
+					<OnStop>
+						self:GetParent():CollectedAnimOnEnd();
+					</OnStop>
+				</Scripts>
+			</AnimationGroup>
+		</Animations>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 			<OnModelLoaded method="OnModelLoaded"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
+			<OnShow method="OnShow" />
 		</Scripts>
 	</DressUpModel>
 
@@ -428,6 +433,19 @@
 		<Anchors>
 			<Anchor point="CENTER" x="0" y="0"/>
 		</Anchors>
+		<Layers>
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectTexture" file="Interface\BUTTONS\CheckButtonGlow" alpha="0.5" alphaMode="ADD">
+					<!--<Size>
+						<AbsDimension x="15" y="15"/>
+					</Size>-->
+					<Anchors>
+						<Anchor point="TOPLEFt" x="-5" y="5"/>
+						<Anchor point="BOTTOMRIGHT" x="5" y="-5"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
 		<HighlightTexture file="Interface\BUTTONS\UI-Common-MouseHilight" alphaMode="ADD"/>
 		<Scripts>
 			<OnClick method="OnClick" />
@@ -553,7 +571,7 @@
 		<Layers>
 			<Layer level="ARTWORK">
 				<FontString parentKey="Name" inherits="Fancy24Font" maxLines="1" text="Wishlist">
-					<Size x="380" y="0"/>
+					<!--<Size x="380" y="0"/>-->
 					<Anchors>
 						<Anchor point="TOP" x="0" y="-37"/>
 					</Anchors>
@@ -863,15 +881,15 @@
 				<Alpha fromAlpha="0" toAlpha="1"  Duration="0.1" order="0" />
 				<Scripts>
 					<OnFinished>
-						self:GetParent().FadeOutAnim:Play();
+						self:GetParent().CollectedAnim:Play();
 					</OnFinished>
 				</Scripts>
 			</AnimationGroup>
-			<AnimationGroup parentKey="FadeOutAnim" looping="NONE" setToFinalAlpha="true">
+			<AnimationGroup parentKey="CollectedAnim" looping="NONE" setToFinalAlpha="true">
 				<Alpha fromAlpha="1" toAlpha="0"  Duration="1" order="0" startDelay="2" />
 				<Scripts>
 					<OnFinished>
-						self:GetParent():FadeOutDone();
+						self:GetParent():CollectedAnimOnEnd();
 					</OnFinished>
 				</Scripts>
 			</AnimationGroup>
