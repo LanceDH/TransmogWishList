@@ -33,7 +33,7 @@ TWL_INFO1 = [[Add appearances by:
  
  - Selecting a set in the Sets tab and clicking the star icon in the top left.
  
- - Typing an itemID in the textbox on the top right and pressing enter."]]
+ - Typing an itemID in the textbox on the top right and pressing enter.]]
 
 local TWL_DEFAULTS = {
 	global = {	
@@ -488,7 +488,7 @@ function TransMogWishListModelMixin:OnEnter()
 	local sources = _wishListDataProvider:GetAppearanceSources(self.itemInfo.visualID);
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	local itemName, _, titleQuality = GetItemInfo(self.itemInfo.itemID);
-	GameTooltip:SetText(itemName, GetItemQualityColor(titleQuality or 1));
+	GameTooltip:SetText(itemName or "Loading data", GetItemQualityColor(titleQuality or 1));
 	if sources then 
 		GameTooltip:AddLine("Available sources");
 		for k, source in ipairs(sources) do
