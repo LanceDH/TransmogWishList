@@ -412,6 +412,13 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 			TWL:UpdateAllWishButtons();
 		end);
 	
+	-- Hide the button when transmogging
+	WardrobeTransmogFrame:HookScript("OnShow", function(...)
+			TransmogWishListButton:Hide();
+		end);
+	CollectionsJournal:HookScript("OnShow", function(...)
+			TransmogWishListButton:Show();
+		end);
 end
 
 function TransmogWishListMixin:OnMouseWheel(delta)
@@ -573,7 +580,6 @@ function TransMogWishListModelMixin:ShowWishlistItem()
 	else
 		self.Border:SetAtlas("transmog-wardrobe-border-unusable");
 	end
-	
 end
 
 -----------------------------------------------------------------------
