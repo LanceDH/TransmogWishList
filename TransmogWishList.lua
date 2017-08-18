@@ -389,6 +389,7 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 	
 	TWLSetsWishButton:SetParent(setsFrame.Model);
 	TWLSetsWishButton:SetPoint("TOPLEFT", setsFrame.Model, "TOPLEFT", 5, -5);
+	TWLSetsWishButton:Show();
 
 	for k, model in ipairs(collectionFrame.Models) do
 		model.TWLWishButton = CreateFrame("FRAME", nil, model, "TWLWishButtonTemplate");

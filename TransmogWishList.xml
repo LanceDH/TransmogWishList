@@ -1014,11 +1014,8 @@
 		</Scripts>
 	</Frame>
 	
-	<Button name="TWLSetsWishButton" mixin="TWLSetsWishButtonMixin" hidden="false" enableMouse="true">
+	<Button name="TWLSetsWishButton" mixin="TWLSetsWishButtonMixin" hidden="true" enableMouse="true">
 		<Size x="22" y="22"/>
-		<Anchors>
-			<Anchor point="TOPLEFT" x="5" y="-5"/>
-		</Anchors>
 		<Layers>
 			<Layer level="ARTWORK">
 				<Texture file="Interface\Addons\TransmogWishList\Images\WishIcon" alpha="0.4" parentKey="texture">
