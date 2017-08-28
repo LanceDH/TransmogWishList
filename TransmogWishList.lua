@@ -24,6 +24,8 @@ local WARDROBE_MODEL_SETUP_GEAR = {
 	["INVTYPE_HEAD"] = 78416,
 }
 
+
+
 local FORMAT_MODID_SELECTED = "Selected: |cFFFFD100%d|r ";
 local FORMAT_MODPICKER_INFO = "ItemID |cFFFFD100%d|r has |cFFFFD100%d|r appearance mods.|nPlease select which one you'd like to add to your list.";
 local FORMAT_APPEARANCE_ADDED = "Appearance of |c%s%s|r added to your wishlist.";
@@ -34,6 +36,11 @@ TWL_INFO1 = [[Add appearances by:
  - Selecting a set in the Sets tab and clicking the star icon in the top left.
  
  - Typing an itemID in the textbox on the top right and pressing enter.]]
+TWL_SOUNDS = {
+	["FX_Shimmer_Whoosh_Generic"] = 39672
+	,["PickUpRing"] = 1193
+	,["PutDownRing"] = 1210
+}
 
 local TWL_DEFAULTS = {
 	global = {	
@@ -305,8 +312,7 @@ function TransmogWishListMixin:OnEvent(event, ...)
 			else
 				print("You unlocked multiple appearances from your wish list!");
 			end
-			PlaySound("FX_Shimmer_Whoosh_Generic");
-			--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
+			PlaySound(TWL_SOUNDS.FX_Shimmer_Whoosh_Generic);
 		end
 		
 		return;
@@ -427,8 +433,7 @@ function TransmogWishListMixin:OnMouseWheel(delta)
 end
 
 function TransmogWishListMixin:OnPageChanged(userAction)
-	PlaySound("Ui_Transmog_PageTurn");
-	--PlaySound(SOUNDKIT.UI_TRANSMOG_PAGE_TURN);
+	PlaySound(SOUNDKIT.UI_TRANSMOG_PAGE_TURN);
 	if ( userAction ) then
 		self:Update();
 	end
@@ -712,8 +717,7 @@ function TWLWishButtonMixin:OnMouseUp()
 			_wishListDataProvider:AddVisualIDToList(self.visualInfo.visualID);
 		end
 	end
-	PlaySound("PutDownRing");
-	--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
+	PlaySound(TWL_SOUNDS.PutDownRing);
 	self:Update(true);
 end
 
@@ -748,8 +752,7 @@ function TWLSetsWishButtonMixin:OnMouseUp()
 	self.texture:SetPoint("CENTER", self, "CENTER", 0, 0);
 	local setID = self:GetParent():GetParent().selectedSetID;
 	_wishListDataProvider:AddSetIDToList(setID);
-	PlaySound("PutDownRing");
-	--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
+	PlaySound(TWL_SOUNDS.PutDownRing);
 end
 
 -----------------------------------------------------------------------
@@ -857,8 +860,7 @@ TWLModButtonMixin = {};
 function TWLModButtonMixin:OnClick()
 	TransmogWishListModPicker.selected = self.modInfo;
 	TransmogWishListModPicker:Update();
-	PlaySound("igMainMenuOptionCheckBoxOn");
-	--PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
+	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
 end
 
 function TWLModButtonMixin:OnEnter()

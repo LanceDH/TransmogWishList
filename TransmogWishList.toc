@@ -1,8 +1,8 @@
-﻿## Interface: 70200
+﻿## Interface: 70300
 ## Title: TransmogWishList
 ## Notes: A lightweight wish list for transmog appearances.
 ## Author: LanceDH
-## Version: 7.2.02
+## Version: 7.3.01
 ## SavedVariables: TWLDB
 
 TransmogWishList.xml
