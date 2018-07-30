@@ -69,10 +69,26 @@ function TransmogWishListDataProviderMixin:OnLoad()
 	self.lastAddition = nil;
 	self.sourceInfo = {};
 	self.dropInfo = {};
+	self.recentlyChanged = {};
 end
 
-function TransmogWishListDataProviderMixin:GetAppearanceSources(visualID)
-	if (not self.sourceInfo[visualID]) then
+function TransmogWishListDataProviderMixin:AppearanceIsUnlocked(visualID)
+	local sources = self:GetAppearanceSources(visualID, true);
+	
+	if (not sources) then return false; end
+	
+	for k, source in ipairs(sources) do
+		if (source.isCollected) then
+			return true;
+		end
+	end
+	
+	return false;
+end
+
+
+function TransmogWishListDataProviderMixin:GetAppearanceSources(visualID, forceUpdate)
+	if (forceUpdate or not self.sourceInfo[visualID]) then
 		self.sourceInfo[visualID] = C_TransmogCollection.GetAppearanceSources(visualID);
 	else
 		-- If we have sources, check if their name loaded, if not, rerequest sources;
@@ -123,7 +139,7 @@ function TransmogWishListDataProviderMixin:RemoveByVisualID(appearanceID)
 	end
 end
 
-function TransmogWishListDataProviderMixin:GetListItemByVisualID(visualID, sourceID)
+function TransmogWishListDataProviderMixin:GetListItemByVisualID(visualID)
 	for k, item in ipairs(self.wishList) do
 		if (item.visualID == visualID ) then
 			return item;
@@ -259,6 +275,7 @@ TransmogWishListMixin = {};
 function TransmogWishListMixin:OnLoad() 
 	_wishListDataProvider:OnLoad();
 	
+	self.dataProvider = _wishListDataProvider;
 	self.NUM_ROWS = 3;
 	self.NUM_COLS = 6;
 	self.PAGE_SIZE = self.NUM_ROWS * self.NUM_COLS;
@@ -267,12 +284,25 @@ function TransmogWishListMixin:OnLoad()
 	self:RegisterEvent("ADDON_LOADED");
 	self:RegisterEvent("GET_ITEM_INFO_RECEIVED");
 	self:RegisterEvent("TRANSMOG_COLLECTION_ITEM_UPDATE");
-	self:RegisterEvent("CHAT_MSG_LOOT");
+	self:RegisterEvent("CHAT_MSG_SYSTEM");
 
-	self:SetScript("OnEvent", function(self, event, ...) self:OnEvent(event, ...) end)
+	self:SetScript("OnEvent", function(self, event, ...)self:OnEvent(event, ...) end)
 end
 
 function TransmogWishListMixin:OnEvent(event, ...)
+	
+	
+	if (event == "CHAT_MSG_SYSTEM") then
+		-- We check if the message was a transmog change
+		-- If so, get the visualID and add it to the list of visuals to update
+		local text = ...;
+		local sourceID = tonumber(text:match("transmogappearance:(%d+)"));
+		if (sourceID) then
+			local sourceInfo = C_TransmogCollection.GetSourceInfo(sourceID);
+			_wishListDataProvider.recentlyChanged[sourceInfo.visualID] = true;
+		end
+		return;
+	end
 	
 	if (event == "ADDON_LOADED") then
 		local addon = ...;
@@ -284,35 +314,45 @@ function TransmogWishListMixin:OnEvent(event, ...)
 	end
 	if (event == "TRANSMOG_COLLECTION_UPDATED") then
 		self:Update();
-		local appearanceID, c = C_TransmogCollection.GetLatestAppearance();
-		if not appearanceID then return end
 		local totalUnlocked = 0;
-
-		-- Hate doing this, but if you get a lot of appearances at once, only the last is available otherwise
-		for k, item in _wishListDataProvider:EnumerateWishList() do
-			if(not item.collected and C_TransmogCollection.GetSourceInfo(item.sourceID).isCollected) then
-				totalUnlocked = totalUnlocked + 1;
-				item.collected = true;
-				_wishListDataProvider:Sort();
-				TransmogWishListFrame.PagingFrame:SetCurrentPage(1)
-				TransmogWishListFrame:Update();
-			end			
-			-- if (item.visualID == appearanceID and not item.collected) then
-				-- print("You unlocked an appearance from your wish list!");
-				-- item.collected = true;
-				-- _wishListDataProvider:Sort();
-				-- TransmogWishListFrame.PagingFrame:SetCurrentPage(1)
-				-- TransmogWishListFrame:Update();
-				-- return;
-			-- end
+		local totalLocked = 0;
+		
+		-- Check every recently changed visualID if they are collected or not
+		for visualID, v in pairs(_wishListDataProvider.recentlyChanged) do
+			local item = _wishListDataProvider:GetListItemByVisualID(visualID);
+			if (item) then -- Check if the item is on our wishlist
+				if (_wishListDataProvider:AppearanceIsUnlocked(item.visualID)) then
+					item.collected = true;
+					totalUnlocked = totalUnlocked + 1;
+				else
+					item.collected = false;
+					totalLocked = totalLocked + 1;
+				end
+			end
 		end
+		-- Clear list for next update
+		wipe(_wishListDataProvider.recentlyChanged);
+
+		_wishListDataProvider:Sort();
+		TransmogWishListFrame.PagingFrame:SetCurrentPage(1)
+		TransmogWishListFrame:Update();
+
 		if (totalUnlocked > 0) then
 			if (totalUnlocked == 1) then
-				print("You unlocked an appearance from your wish list!");
+				print("You've unlocked an appearance from your wish list!");
 			else
-				print("You unlocked multiple appearances from your wish list!");
+				print("You've unlocked multiple appearances from your wish list!");
 			end
+
 			PlaySound(TWL_SOUNDS.FX_Shimmer_Whoosh_Generic);
+		end
+		
+		if (totalLocked > 0) then
+			if (totalLocked == 1) then
+				print("An appearance on your wish list was re-locked.");
+			else
+				print("Multiple appearances on your wish list were re-locked.");
+			end
 		end
 		
 		return;

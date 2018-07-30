@@ -615,7 +615,7 @@
 	<Frame name="TransmogWishListFrame" mixin="TransmogWishListMixin" hidden="true" inherits="TWLCollectionsBackgroundTemplate" enableMouse="true">
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString parentKey="Name" inherits="Fancy24Font" maxLines="1" text="Wishlist">
+				<FontString parentKey="Name" inherits="Fancy24Font" maxLines="1" text="Wish List">
 					<!--<Size x="380" y="0"/>-->
 					<Anchors>
 						<Anchor point="TOP" x="0" y="-37"/>
