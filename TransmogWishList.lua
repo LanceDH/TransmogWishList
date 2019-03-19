@@ -24,8 +24,7 @@ local WARDROBE_MODEL_SETUP_GEAR = {
 	["INVTYPE_HEAD"] = 78416,
 }
 
-
-
+local FORMAT_TOOLTIP_NAME = "%s  |TInterface\\Addons\\TransmogWishList\\Images\\WishIcon:12|t";
 local FORMAT_MODID_SELECTED = "Selected: |cFFFFD100%d|r ";
 local FORMAT_MODPICKER_INFO = "ItemID |cFFFFD100%d|r has |cFFFFD100%d|r appearance mods.|nPlease select which one you'd like to add to your list.";
 local FORMAT_APPEARANCE_ADDED = "Appearance of |c%s%s|r added to your wishlist.";
@@ -419,8 +418,9 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 	local setsFrame = WardrobeCollectionFrame.SetsCollectionFrame;
 	
 	self:SetParent(collectionFrame);
-	self:SetFrameLevel(15);
+	self:SetFrameLevel(collectionFrame:GetFrameLevel()+10);
 	self:SetAllPoints();
+	--self:SetFrameLevel(15);
 	
 	TransmogWishListButton:SetParent(collectionFrame);
 	TransmogWishListButton:SetPoint("BOTTOMRIGHT", collectionFrame, "BOTTOMRIGHT", -75, 42);
@@ -512,6 +512,54 @@ end
 --	TransMogWishListModelMixin
 -----------------------------------------------------------------------
 
+local function UpdateModelTooltip(tooltip) 
+	local modelFrame = tooltip:GetOwner();
+	local itemInfo = tooltip:GetOwner().itemInfo;
+	if (not itemInfo or not modelFrame) then return; end
+	GameTooltip:SetOwner(modelFrame, "ANCHOR_RIGHT");
+
+	-- Don't do anything if we are collected and playing the animation
+	if (itemInfo.collected) then return end;
+	modelFrame.RemoveButton:Show();
+	
+	local sources = _wishListDataProvider:GetAppearanceSources(itemInfo.visualID);
+	
+	local itemName, _, titleQuality = GetItemInfo(itemInfo.itemID);
+	-- Data not yet available
+	if (not itemName) then
+		GameTooltip:SetText("Loading data");
+		return;
+	end
+
+	-- Display sources if available
+	if sources then 
+		GameTooltip:AddLine("Available sources");
+		for k, source in ipairs(sources) do
+			GameTooltip:AddLine(source.name, GetItemQualityColor(source.quality or 1))
+			if source.sourceType == TRANSMOG_SOURCE_BOSS_DROP then
+				local drops = _wishListDataProvider:GetAppearanceSourceDrops(source.sourceID);
+				for k, drop in pairs(drops) do
+					GameTooltip:AddDoubleLine("  " .. drop.instance, drop.encounter, 1, 1, 1, 1, 1, 1);--, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95);
+					if (#drop.difficulties > 0) then
+						GameTooltip:AddLine("  - " ..table.concat(drop.difficulties, ", "), 0.75, 0.75, 0.75);
+					end
+				end
+			else
+				GameTooltip:AddLine("  " ..  _G["TRANSMOG_SOURCE_" .. source.sourceType], 1, 1, 1);--, 0.95, 0.95, 0.95)
+			end
+		end
+	elseif itemInfo.obtainable then
+		GameTooltip:AddLine("No source data available.");
+	end
+	
+	-- Can't obtain on this character
+	if not itemInfo.obtainable then
+		GameTooltip:AddLine("Cannot be obtained on this character.", 1, 0.25, 0.25)
+	end
+	GameTooltip:Show();
+	
+end
+
 TransMogWishListModelMixin = {};
 
 function TransMogWishListModelMixin:OnLoad()
@@ -522,9 +570,6 @@ function TransMogWishListModelMixin:OnLoad()
 end
 
 function TransMogWishListModelMixin:OnShow()
-	if self.CollectedAnim:IsPlaying() then
-		self.CollectedAnim:Stop();
-	end
 	self.CollectedString:SetAlpha(0);
 	self.CollectedGlow:SetAlpha(0);
 	self:SetAlpha(1);
@@ -538,33 +583,9 @@ function TransMogWishListModelMixin:OnModelLoaded()
 end
 
 function TransMogWishListModelMixin:OnEnter()
-	local sources = _wishListDataProvider:GetAppearanceSources(self.itemInfo.visualID);
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-	local itemName, _, titleQuality = GetItemInfo(self.itemInfo.itemID);
-	GameTooltip:SetText(itemName or "Loading data", GetItemQualityColor(titleQuality or 1));
-	if sources then 
-		GameTooltip:AddLine("Available sources");
-		for k, source in ipairs(sources) do
-			GameTooltip:AddLine(source.name, GetItemQualityColor(source.quality or 1))
-			if source.sourceType == TRANSMOG_SOURCE_BOSS_DROP then
-				local drops = _wishListDataProvider:GetAppearanceSourceDrops(source.sourceID);
-				for k, drop in pairs(drops) do
-					GameTooltip:AddDoubleLine(drop.instance, drop.encounter, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75);
-				end
-			else
-				GameTooltip:AddLine( _G["TRANSMOG_SOURCE_" .. source.sourceType], 0.75, 0.75, 0.75)
-			end
-		end
-	elseif self.itemInfo.obtainable then
-		GameTooltip:AddLine("No source data available.");
-	end
-	
-	if not self.itemInfo.obtainable then
-		GameTooltip:AddLine("Cannot be obtained on this character.", 1, 0.25, 0.25)
-	end
-	GameTooltip:Show();
-	
-	self.RemoveButton:Show();
+	GameTooltip.UpdateTooltip = UpdateModelTooltip;
+	UpdateModelTooltip(GameTooltip);
 end
 
 function TransMogWishListModelMixin:OnLeave()
@@ -1003,4 +1024,38 @@ end
 
 function TWLAddBoxMixin:OnTextChanged()
 	InputBoxInstructions_OnTextChanged(self);
+end
+
+-----------------------------------------------------------------------
+--	TooltipLine
+-----------------------------------------------------------------------
+
+local function AddTooltipLine(tooltip)
+	local name, itemLink = tooltip:GetItem();
+	-- If the tooltip doesn't have an itemLink, don't continue
+	if (not itemLink) then return; end
+	
+	local appearanceID, sourceID = C_TransmogCollection.GetItemInfo(itemLink);
+	
+	-- Check if the item appearance is on the wish list and not yet collected
+	local itemInfo = TransmogWishListFrame.dataProvider:GetListItemByVisualID(appearanceID);
+	if(itemInfo and not itemInfo.collected) then
+		-- Add the wish list icon after the name
+		local ttName = tooltip:GetName();
+		local line = _G[ttName.."TextLeft"..1];
+		local text = line:GetText();
+		if(not text:find("|T")) then -- Prevent adding multiple times e.g. encounter journal
+			line:SetText(FORMAT_TOOLTIP_NAME:format(text));
+		end
+	end
+end
+
+GameTooltip:HookScript("OnTooltipSetItem", AddTooltipLine);
+GameTooltip.ItemTooltip.Tooltip:HookScript('OnTooltipSetItem', AddTooltipLine);
+hooksecurefunc(GameTooltip, "SetHyperlink", AddTooltipLine);
+ItemRefTooltip:HookScript("OnTooltipSetItem", AddTooltipLine);
+ShoppingTooltip1:HookScript("OnTooltipSetItem", AddTooltipLine);
+
+if (IsAddOnLoaded("WorldQuestTab")) then
+	WQT_Tooltip.ItemTooltip.Tooltip:HookScript('OnTooltipSetItem', AddTooltipLine);
 end
