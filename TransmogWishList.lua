@@ -25,6 +25,7 @@ local WARDROBE_MODEL_SETUP_GEAR = {
 }
 
 local FORMAT_TOOLTIP_NAME = "%s  |TInterface\\Addons\\TransmogWishList\\Images\\WishIcon:12|t";
+local FORMAT_CHAT_ICON = "|TInterface\\Addons\\TransmogWishList\\Images\\WishIcon:12|t%s";
 local FORMAT_MODID_SELECTED = "Selected: |cFFFFD100%d|r ";
 local FORMAT_MODPICKER_INFO = "ItemID |cFFFFD100%d|r has |cFFFFD100%d|r appearance mods.|nPlease select which one you'd like to add to your list.";
 local FORMAT_APPEARANCE_ADDED = "Appearance of |c%s%s|r added to your wishlist.";
@@ -69,22 +70,9 @@ function TransmogWishListDataProviderMixin:OnLoad()
 	self.sourceInfo = {};
 	self.dropInfo = {};
 	self.recentlyChanged = {};
+	self.recentUnlocks = {};
+	self.recentLocks = {};
 end
-
-function TransmogWishListDataProviderMixin:AppearanceIsUnlocked(visualID)
-	local sources = self:GetAppearanceSources(visualID, true);
-	
-	if (not sources) then return false; end
-	
-	for k, source in ipairs(sources) do
-		if (source.isCollected) then
-			return true;
-		end
-	end
-	
-	return false;
-end
-
 
 function TransmogWishListDataProviderMixin:GetAppearanceSources(visualID, forceUpdate)
 	if (forceUpdate or not self.sourceInfo[visualID]) then
@@ -141,6 +129,14 @@ end
 function TransmogWishListDataProviderMixin:GetListItemByVisualID(visualID)
 	for k, item in ipairs(self.wishList) do
 		if (item.visualID == visualID ) then
+			return item;
+		end
+	end
+end
+
+function TransmogWishListDataProviderMixin:GetListItemBySourceID(sourceID)
+	for k, item in ipairs(self.wishList) do
+		if (item.sourceID == sourceID ) then
 			return item;
 		end
 	end
@@ -219,7 +215,7 @@ function TransmogWishListDataProviderMixin:AddItemIDToList(itemID, modID)
 	local sourceInfo = C_TransmogCollection.GetSourceInfo(sourceID)
 	
 	if sourceInfo.isCollected then
-		TransmogWishListPopUp:Announce("You already unlocked the appearance of this item.");
+		TransmogWishListPopUp:Announce("You've already unlocked the appearance of this item.");
 		return;
 	end
 	
@@ -253,14 +249,46 @@ function TransmogWishListDataProviderMixin:EnumerateWishList()
 	return ipairs(self.wishList);
 end
 
-function TransmogWishListDataProviderMixin:GetWishList()
-	return self.wishList;
+function TransmogWishListDataProviderMixin:UnlockSource(sourceID)
+	local listItem = self:GetListItemBySourceID(sourceID);
+	if (listItem) then
+		listItem.collected = true;
+		self.recentUnlocks[sourceID] = true;
+	end
 end
 
-function TransmogWishListDataProviderMixin:MarkAppearanceIDCollected(appearanceID)
-	if self.wishList[appearanceID] then
-		self.wishList[appearanceID] = 1;
+function TransmogWishListDataProviderMixin:LockSource(sourceID)
+	local listItem = self:GetListItemBySourceID(sourceID);
+	if (listItem) then
+		listItem.collected = false;
+		
+		if (self.recentUnlocks[sourceID]) then
+			self.recentUnlocks[sourceID] = nil;
+			return;
+		end
+		self.recentLocks[sourceID] = true;
 	end
+end
+
+function TransmogWishListDataProviderMixin:ClearRecent()
+	wipe(self.recentUnlocks);
+	wipe(self.recentLocks);
+end
+
+function TransmogWishListDataProviderMixin:GetNumRecentUnlocks()
+	local count = 0;
+	for k, v in pairs(self.recentUnlocks) do
+		count = count + 1;
+	end
+	return count;
+end
+
+function TransmogWishListDataProviderMixin:GetNumRecentLocks()
+	local count = 0;
+	for k, v in pairs(self.recentLocks) do
+		count = count + 1;
+	end
+	return count;
 end
 
 local _wishListDataProvider = CreateFromMixins(TransmogWishListDataProviderMixin);
@@ -279,28 +307,24 @@ function TransmogWishListMixin:OnLoad()
 	self.NUM_COLS = 6;
 	self.PAGE_SIZE = self.NUM_ROWS * self.NUM_COLS;
 	
+	self:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_REMOVED");
+	self:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_ADDED");
 	self:RegisterEvent("TRANSMOG_COLLECTION_UPDATED");
 	self:RegisterEvent("ADDON_LOADED");
 	self:RegisterEvent("GET_ITEM_INFO_RECEIVED");
 	self:RegisterEvent("TRANSMOG_COLLECTION_ITEM_UPDATE");
-	self:RegisterEvent("CHAT_MSG_SYSTEM");
 
 	self:SetScript("OnEvent", function(self, event, ...)self:OnEvent(event, ...) end)
 end
 
 function TransmogWishListMixin:OnEvent(event, ...)
 	
-	
-	if (event == "CHAT_MSG_SYSTEM") then
-		-- We check if the message was a transmog change
-		-- If so, get the visualID and add it to the list of visuals to update
-		local text = ...;
-		local sourceID = tonumber(text:match("transmogappearance:(%d+)"));
-		if (sourceID) then
-			local sourceInfo = C_TransmogCollection.GetSourceInfo(sourceID);
-			_wishListDataProvider.recentlyChanged[sourceInfo.visualID] = true;
-		end
-		return;
+	if(event == "TRANSMOG_COLLECTION_SOURCE_ADDED") then
+		local sourceID = ...;
+		_wishListDataProvider:UnlockSource(sourceID);
+	elseif (event == "TRANSMOG_COLLECTION_SOURCE_REMOVED") then
+		local sourceID = ...;
+		_wishListDataProvider:LockSource(sourceID);
 	end
 	
 	if (event == "ADDON_LOADED") then
@@ -313,24 +337,9 @@ function TransmogWishListMixin:OnEvent(event, ...)
 	end
 	if (event == "TRANSMOG_COLLECTION_UPDATED") then
 		self:Update();
-		local totalUnlocked = 0;
-		local totalLocked = 0;
 		
-		-- Check every recently changed visualID if they are collected or not
-		for visualID, v in pairs(_wishListDataProvider.recentlyChanged) do
-			local item = _wishListDataProvider:GetListItemByVisualID(visualID);
-			if (item) then -- Check if the item is on our wishlist
-				if (_wishListDataProvider:AppearanceIsUnlocked(item.visualID)) then
-					item.collected = true;
-					totalUnlocked = totalUnlocked + 1;
-				else
-					item.collected = false;
-					totalLocked = totalLocked + 1;
-				end
-			end
-		end
-		-- Clear list for next update
-		wipe(_wishListDataProvider.recentlyChanged);
+		local totalUnlocked = _wishListDataProvider:GetNumRecentUnlocks();
+		local totalLocked = _wishListDataProvider:GetNumRecentLocks();
 
 		_wishListDataProvider:Sort();
 		TransmogWishListFrame.PagingFrame:SetCurrentPage(1)
@@ -338,9 +347,9 @@ function TransmogWishListMixin:OnEvent(event, ...)
 
 		if (totalUnlocked > 0) then
 			if (totalUnlocked == 1) then
-				print("You've unlocked an appearance from your wish list!");
+				print(FORMAT_CHAT_ICON:format("You've unlocked an appearance from your wish list!"));
 			else
-				print("You've unlocked multiple appearances from your wish list!");
+				print(FORMAT_CHAT_ICON:format("You've unlocked " .. totalUnlocked .. " appearances from your wish list!"));
 			end
 
 			PlaySound(TWL_SOUNDS.FX_Shimmer_Whoosh_Generic);
@@ -348,11 +357,13 @@ function TransmogWishListMixin:OnEvent(event, ...)
 		
 		if (totalLocked > 0) then
 			if (totalLocked == 1) then
-				print("An appearance on your wish list was re-locked.");
+				print(FORMAT_CHAT_ICON:format("An appearance on your wish list was re-locked."));
 			else
-				print("Multiple appearances on your wish list were re-locked.");
+				print(FORMAT_CHAT_ICON:format(totalLocked .. " appearances on your wish list were re-locked."));
 			end
 		end
+		
+		_wishListDataProvider:ClearRecent();
 		
 		return;
 	end
@@ -420,7 +431,6 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 	self:SetParent(collectionFrame);
 	self:SetFrameLevel(collectionFrame:GetFrameLevel()+10);
 	self:SetAllPoints();
-	--self:SetFrameLevel(15);
 	
 	TransmogWishListButton:SetParent(collectionFrame);
 	TransmogWishListButton:SetPoint("BOTTOMRIGHT", collectionFrame, "BOTTOMRIGHT", -75, 42);
@@ -567,6 +577,12 @@ function TransMogWishListModelMixin:OnLoad()
 	for slot, id in pairs(WARDROBE_MODEL_SETUP_GEAR) do
 		self:TryOn(id);
 	end
+	
+	local lightValues = { enabled=true, omni=false, dirX=-1, dirY=1, dirZ=-1, ambIntensity=1.05, ambR=1, ambG=1, ambB=1, dirIntensity=0, dirR=1, dirG=1, dirB=1 };
+	self:SetLight(lightValues.enabled, lightValues.omni,
+			lightValues.dirX, lightValues.dirY, lightValues.dirZ,
+			lightValues.ambIntensity, lightValues.ambR, lightValues.ambG, lightValues.ambB,
+			lightValues.dirIntensity, lightValues.dirR, lightValues.dirG, lightValues.dirB);
 end
 
 function TransMogWishListModelMixin:OnShow()
@@ -575,6 +591,13 @@ function TransMogWishListModelMixin:OnShow()
 	self:SetAlpha(1);
 end
 
+function TransMogWishListModelMixin:OnMouseDown()
+	if(self.itemInfo and self.itemInfo.sourceID) then
+		if (IsModifiedClick("DRESSUP")) then
+			DressUpVisual(self.itemInfo.sourceID);
+		end
+	end
+end
 
 function TransMogWishListModelMixin:OnModelLoaded()
 	if (self.cameraID) then
@@ -1039,6 +1062,7 @@ local function AddTooltipLine(tooltip)
 	
 	-- Check if the item appearance is on the wish list and not yet collected
 	local itemInfo = TransmogWishListFrame.dataProvider:GetListItemByVisualID(appearanceID);
+
 	if(itemInfo and not itemInfo.collected) then
 		-- Add the wish list icon after the name
 		local ttName = tooltip:GetName();

@@ -2,7 +2,7 @@
 ## Title: TransmogWishList
 ## Notes: A lightweight wish list for transmog appearances.
 ## Author: LanceDH
-## Version: 8.1.01
+## Version: 8.1.02
 ## SavedVariables: TWLDB
 ## OptionalDeps: WorldQuestTab
 

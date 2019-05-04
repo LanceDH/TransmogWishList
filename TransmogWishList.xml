@@ -330,7 +330,7 @@
 		</Animations>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
-			<OnModelLoaded method="OnModelLoaded"/>
+			<OnMouseDown method="OnMouseDown"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
 			<OnShow method="OnShow" />
@@ -609,10 +609,7 @@
 		<Scripts>
 		</Scripts>
 	</Frame>
-	
-	
-	
-	
+
 	<Frame name="TransmogWishListFrame" mixin="TransmogWishListMixin" hidden="true" inherits="TWLCollectionsBackgroundTemplate" enableMouse="true">
 		<Layers>
 			<Layer level="ARTWORK">
