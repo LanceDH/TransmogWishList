@@ -48,12 +48,26 @@ local TWL_DEFAULTS = {
 	}
 }
 
+local function ConvertOldData(wishList)
+	local visualIDs = {};
+	for k, item in ipairs(wishList) do
+		if (item.visualID) then
+			tinsert(visualIDs, item.visualID);
+		end
+	end
+	wipe(wishList);
+	for k, visualID in ipairs(visualIDs) do
+		wishList[visualID] = true;
+	end
+end
 
 function TWL:UpdateAllWishButtons()
-	local models = WardrobeCollectionFrame.ItemsCollectionFrame.Models;
-	
-	for k, model in ipairs(models) do
-		model.TWLWishButton:Update();
+	if (WardrobeCollectionFrame) then
+		local models = WardrobeCollectionFrame.ItemsCollectionFrame.Models;
+		
+		for k, model in ipairs(models) do
+			model.TWLWishButton:Update();
+		end
 	end
 end
 
@@ -72,18 +86,17 @@ function TransmogWishListDataProviderMixin:OnLoad()
 	self.recentlyChanged = {};
 	self.recentUnlocks = {};
 	self.recentLocks = {};
+	self.illusions = {};
+	for k, illusion in ipairs(C_TransmogCollection.GetIllusions()) do
+		self.illusions[illusion.visualID] = illusion;
+	end
 end
 
 function TransmogWishListDataProviderMixin:GetAppearanceSources(visualID, forceUpdate)
 	if (forceUpdate or not self.sourceInfo[visualID]) then
-		self.sourceInfo[visualID] = C_TransmogCollection.GetAppearanceSources(visualID);
-	else
-		-- If we have sources, check if their name loaded, if not, rerequest sources;
-		for k, source in ipairs(self.sourceInfo[visualID]) do
-			if (not source.name) then
-				self.sourceInfo[visualID] = C_TransmogCollection.GetAppearanceSources(visualID);
-				break;
-			end
+		self.sourceInfo[visualID] = {};
+		for k, sourceID in ipairs(C_TransmogCollection.GetAllAppearanceSources(visualID)) do
+			tinsert(self.sourceInfo[visualID], C_TransmogCollection.GetSourceInfo(sourceID));
 		end
 	end
 	
@@ -121,6 +134,7 @@ function TransmogWishListDataProviderMixin:RemoveByVisualID(appearanceID)
 	for i = #self.wishList, 1, -1 do
 		if (self.wishList[i].visualID == appearanceID) then
 			table.remove(self.wishList, i);
+			TWL.settings.wishList[appearanceID] = nil;
 			return;
 		end
 	end
@@ -136,8 +150,12 @@ end
 
 function TransmogWishListDataProviderMixin:GetListItemBySourceID(sourceID)
 	for k, item in ipairs(self.wishList) do
-		if (item.sourceID == sourceID ) then
-			return item;
+		if (item.sources) then
+			for ks, source in ipairs(item.sources) do
+				if (source.sourceID == sourceID ) then
+					return item;
+				end
+			end
 		end
 	end
 end
@@ -160,15 +178,10 @@ function TransmogWishListDataProviderMixin:HasObtainableSource(visualID, sourceI
 end
 
 function TransmogWishListDataProviderMixin:LoadSaveData(data)
-	self.wishList = data;
-	self.loadingSaveData = true;
-	
-	-- update obtainability for current character
-	for k, itemInfo in ipairs(self.wishList) do
-		itemInfo.obtainable = self:HasObtainableSource(itemInfo.visualID, itemInfo.sourceID);
+	for visualID, v  in pairs(data) do
+		self:AddVisualIDToList(visualID, true);
 	end
 	self:Sort();
-	self.loadingSaveData = false;
 end
 
 function TransmogWishListDataProviderMixin:AddSetIDToList(setID)
@@ -196,15 +209,40 @@ function TransmogWishListDataProviderMixin:AddSetIDToList(setID)
 	
 end
 
-function TransmogWishListDataProviderMixin:AddVisualIDToList(visualID)
+function TransmogWishListDataProviderMixin:AddVisualIDToList(visualID, fromLoad)
 	if not type(visualID) == "number" then return; end
 	
-	local sources = self:GetAppearanceSources(visualID)
-
-	self:AddItemIDToList(sources[1].itemID, sources[1].itemModID);
+	local illusion = self.illusions[visualID];
+	
+	if (illusion) then
+		self:AddIllusionToList(illusion, fromLoad);
+	else
+		local sources = self:GetAppearanceSources(visualID)
+		if (sources and sources[1]) then
+			self:AddItemIDToList(sources[1].itemID, sources[1].itemModID, fromLoad);
+		else
+			print("Unknown visualID", visualID);
+		end
+	end
 end
 
-function TransmogWishListDataProviderMixin:AddItemIDToList(itemID, modID)
+function TransmogWishListDataProviderMixin:AddIllusionToList(illusion, fromLoad)
+	local appearanceID, name, link = C_TransmogCollection.GetIllusionSourceInfo(illusion.sourceID);
+	
+	local item = {["visualID"] = appearanceID, ["collected"] = false, ["obtainable"] = true, ["illusion"] = illusion};
+	table.insert(self.wishList, item);
+	
+	self:Sort();
+	TransmogWishListFrame:Update();
+	if (not fromLoad) then
+		local _, _, _, hex = GetItemQualityColor(1);
+		TransmogWishListPopUp:Announce(FORMAT_APPEARANCE_ADDED:format(hex, name, appearanceID));
+	end
+	TWL:UpdateAllWishButtons();
+	TWL.settings.wishList[appearanceID] = true;
+end
+
+function TransmogWishListDataProviderMixin:AddItemIDToList(itemID, modID, fromLoad)
 	if not type(itemID) == "number" then return; end
 	local appearanceID, sourceID = C_TransmogCollection.GetItemInfo(itemID, modID);
 	if not appearanceID then
@@ -212,33 +250,47 @@ function TransmogWishListDataProviderMixin:AddItemIDToList(itemID, modID)
 		return;
 	end
 	
-	local sourceInfo = C_TransmogCollection.GetSourceInfo(sourceID)
+	local sources = self:GetAppearanceSources(appearanceID);
 	
-	if sourceInfo.isCollected then
-		TransmogWishListPopUp:Announce("You've already unlocked the appearance of this item.");
-		return;
+	for k, source in ipairs(sources) do
+		local sourceInfo = C_TransmogCollection.GetSourceInfo(source.sourceID)
+	
+		if sourceInfo.isCollected then
+			TransmogWishListPopUp:Announce("You've already unlocked the appearance of this item.");
+			return;
+		end
 	end
-	
-	if not self:GetListItemByVisualID(appearanceID, sourceID) then
+
+	if (not self:GetListItemByVisualID(appearanceID)) then
 		local name, link, quality, _, _, _, _, _, itemEquipLoc = GetItemInfo(itemID, modID);
 		if not link then
 			self.waitingList[itemID] = {["itemID"] = itemID, ["modID"] = modID};
 			return;
 		end
-		local obtainable = select(2, C_TransmogCollection.PlayerCanCollectSource(sourceID));
-		
+		local obtainable = false;
+		for k, source in ipairs(sources) do 
+			if (select(2, C_TransmogCollection.PlayerCanCollectSource(source.sourceID))) then
+				obtainable = true;
+				break;
+			end
+		end
+
 		local isArmor = WARDROBE_MODEL_SETUP[itemEquipLoc] and true or false;
-		local item = {["itemID"] = itemID, ["visualID"] = appearanceID, ["collected"] = false, ["sourceID"] = sourceID, ["isArmor"] = isArmor, ["equipLocation"] = itemEquipLoc, ["obtainable"] = self:HasObtainableSource(appearanceID, sourceID)};
+		local item = {["itemID"] = itemID, ["visualID"] = appearanceID, ["collected"] = false, ["sources"] = sources; ["sourceID"] = sourceID, ["isArmor"] = isArmor, ["equipLocation"] = itemEquipLoc, ["obtainable"] = self:HasObtainableSource(appearanceID, sourceID)};
 		self.lastAddition = item;
 		table.insert(self.wishList, item);
 		
-		local r, g, b, hex = GetItemQualityColor(quality or 1);
-		TransmogWishListPopUp:Announce(FORMAT_APPEARANCE_ADDED:format(hex, name, appearanceID));
 		self:Sort();
 		
 		TransmogWishListFrame:Update();
-		-- Update in case we added something that was currently visible
+		if (not fromLoad) then
+			local _, _, _, hex = GetItemQualityColor(quality or 1);
+			TransmogWishListPopUp:Announce(FORMAT_APPEARANCE_ADDED:format(hex, name, appearanceID));
+			-- Update in case we added something that was currently visible
+		end
 		TWL:UpdateAllWishButtons();
+		TWL.settings.wishList[appearanceID] = true;
+		
 		return true;
 	else
 		TransmogWishListPopUp:Announce("The appearance is already on your wishlist.");
@@ -531,41 +583,47 @@ local function UpdateModelTooltip(tooltip)
 	-- Don't do anything if we are collected and playing the animation
 	if (itemInfo.collected) then return end;
 	modelFrame.RemoveButton:Show();
-	
+		
 	local sources = _wishListDataProvider:GetAppearanceSources(itemInfo.visualID);
-	
-	local itemName, _, titleQuality = GetItemInfo(itemInfo.itemID);
-	-- Data not yet available
-	if (not itemName) then
-		GameTooltip:SetText("Loading data");
-		return;
-	end
-
-	-- Display sources if available
-	if sources then 
-		GameTooltip:AddLine("Available sources");
-		for k, source in ipairs(sources) do
-			GameTooltip:AddLine(source.name, GetItemQualityColor(source.quality or 1))
-			if source.sourceType == TRANSMOG_SOURCE_BOSS_DROP then
-				local drops = _wishListDataProvider:GetAppearanceSourceDrops(source.sourceID);
-				for k, drop in pairs(drops) do
-					GameTooltip:AddDoubleLine("  " .. drop.instance, drop.encounter, 1, 1, 1, 1, 1, 1);--, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95);
-					if (#drop.difficulties > 0) then
-						GameTooltip:AddLine("  - " ..table.concat(drop.difficulties, ", "), 0.75, 0.75, 0.75);
-					end
-				end
-			else
-				GameTooltip:AddLine("  " ..  _G["TRANSMOG_SOURCE_" .. source.sourceType], 1, 1, 1);--, 0.95, 0.95, 0.95)
-			end
+		
+	if (itemInfo.itemID) then
+		local itemName, _, titleQuality = GetItemInfo(itemInfo.itemID);
+		-- Data not yet available
+		if (not itemName) then
+			GameTooltip:SetText("Loading data");
+			return;
 		end
-	elseif itemInfo.obtainable then
-		GameTooltip:AddLine("No source data available.");
+
+		-- Can't obtain on this character
+		if not itemInfo.obtainable then
+			GameTooltip:AddLine("Cannot be obtained on this character.", 1, 0.25, 0.25)
+		elseif sources then 
+			-- Display sources if available
+			GameTooltip:AddLine("Available sources");
+			for k, source in ipairs(sources) do
+				GameTooltip:AddLine(source.name, GetItemQualityColor(source.quality or 1));
+				if source.sourceType == TRANSMOG_SOURCE_BOSS_DROP then
+					local drops = _wishListDataProvider:GetAppearanceSourceDrops(source.sourceID);
+					for k, drop in pairs(drops) do
+						GameTooltip:AddDoubleLine("  " .. drop.instance, drop.encounter, 1, 1, 1, 1, 1, 1);--, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95);
+						if (#drop.difficulties > 0) then
+							GameTooltip:AddLine("  - " ..table.concat(drop.difficulties, ", "), 0.75, 0.75, 0.75);
+						end
+					end
+				elseif (source.sourceType) then
+					GameTooltip:AddLine("  " ..  _G["TRANSMOG_SOURCE_" .. source.sourceType], 1, 1, 1);--, 0.95, 0.95, 0.95)
+				end
+			end
+		else
+			GameTooltip:AddLine("No source data available.");
+		end
+	elseif (itemInfo.illusion) then
+		local visualID, name, link = C_TransmogCollection.GetIllusionSourceInfo(itemInfo.illusion.sourceID);
+		GameTooltip:AddLine("Available sources");
+		GameTooltip:AddLine(name, GetItemQualityColor(6));
+		GameTooltip:AddLine(" " .. itemInfo.illusion.sourceText, 1, 1, 1);
 	end
 	
-	-- Can't obtain on this character
-	if not itemInfo.obtainable then
-		GameTooltip:AddLine("Cannot be obtained on this character.", 1, 0.25, 0.25)
-	end
 	GameTooltip:Show();
 	
 end
@@ -592,9 +650,11 @@ function TransMogWishListModelMixin:OnShow()
 end
 
 function TransMogWishListModelMixin:OnMouseDown()
-	if(self.itemInfo and self.itemInfo.sourceID) then
+	local itemInfo = self.itemInfo
+	if(itemInfo and itemInfo.illusion or self.itemInfo.sourceID) then
 		if (IsModifiedClick("DRESSUP")) then
-			DressUpVisual(self.itemInfo.sourceID);
+			local sourceID = itemInfo.illusion and itemInfo.illusion.sourceID or itemInfo.sourceID;
+			DressUpVisual(sourceID);
 		end
 	end
 end
@@ -609,11 +669,25 @@ function TransMogWishListModelMixin:OnEnter()
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	GameTooltip.UpdateTooltip = UpdateModelTooltip;
 	UpdateModelTooltip(GameTooltip);
+	if IsModifiedClick("DRESSUP") then
+		ShowInspectCursor();
+	else
+		ResetCursor();
+	end
 end
 
 function TransMogWishListModelMixin:OnLeave()
 	self.RemoveButton:Hide();
 	GameTooltip:Hide();
+	ResetCursor();
+end
+
+function TransMogWishListModelMixin:OnUpdate()
+	if IsModifiedClick("DRESSUP") then
+		ShowInspectCursor();
+	else
+		ResetCursor();
+	end
 end
 
 function TransMogWishListModelMixin:RemoveButtonOnClick()
@@ -637,25 +711,30 @@ function TransMogWishListModelMixin:ShowWishlistItem()
 	local itemInfo = self.itemInfo;
 	self:Undress();
 	
-	if itemInfo.isArmor then
-		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
-		self:SetUseTransmogSkin(WARDROBE_MODEL_SETUP[itemInfo.equipLocation].useTransmogSkin);
-		self:SetUnit("player", false);
-		self:TryOn(itemInfo.sourceID)
-		
-		for slot, equip in pairs(WARDROBE_MODEL_SETUP[itemInfo.equipLocation].slots) do
-			if ( equip ) then
-				self:TryOn(WARDROBE_MODEL_SETUP_GEAR[slot]);
+	if itemInfo.itemID then
+	
+		if itemInfo.isArmor then
+			cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
+			self:SetUseTransmogSkin(WARDROBE_MODEL_SETUP[itemInfo.equipLocation].useTransmogSkin);
+			self:SetUnit("player", false);
+			self:TryOn(itemInfo.sourceID)
+			
+			for slot, equip in pairs(WARDROBE_MODEL_SETUP[itemInfo.equipLocation].slots) do
+				if ( equip ) then
+					self:TryOn(WARDROBE_MODEL_SETUP_GEAR[slot]);
+				end
 			end
+			
+		else
+			cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
+			self:SetItemAppearance(itemInfo.visualID)
 		end
-		
-	else
-		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
-		self:SetItemAppearance(itemInfo.visualID)
 	end
 	
+	if (cameraID) then
 		Model_ApplyUICamera(self, cameraID);
 		self.cameraID = cameraID;
+	end
 		
 	self.CollectedString:Hide();
 	self.CollectedGlow:Hide();
@@ -753,7 +832,7 @@ TWLWishButtonMixin = {}
 
 function TWLWishButtonMixin:Update(enteredParent)
 	local visualInfo = self:GetParent().visualInfo;
-	if (not visualInfo or visualInfo.isCollected or visualInfo.isHideVisual == nil) then 
+	if (not visualInfo or visualInfo.isCollected) then 
 		self:Hide();
 		return; 
 	end
@@ -797,9 +876,9 @@ function TWLWishButtonMixin:OnMouseUp()
 		_wishListDataProvider:RemoveByVisualID(self.visualInfo.visualID);
 		TransmogWishListFrame:Update();
 	else
-		if self.visualInfo.isHideVisual ~= nil then
-			_wishListDataProvider:AddVisualIDToList(self.visualInfo.visualID);
-		end
+		--if self.visualInfo.isHideVisual ~= nil then
+		_wishListDataProvider:AddVisualIDToList(self.visualInfo.visualID);
+		--end
 	end
 	PlaySound(TWL_SOUNDS.PutDownRing);
 	self:Update(true);
@@ -964,10 +1043,16 @@ end
 		
 function TWL:OnEnable()
 	self.db = LibStub("AceDB-3.0"):New("TWLDB", TWL_DEFAULTS, true);
+
 	self.settings = self.db.global;
+	
+	if (not self.settings.versionCheck) then
+		ConvertOldData(self.settings.wishList);
+	end
+	self.settings.versionCheck  = GetAddOnMetadata(_addonName, "version");
+	
 	_wishListDataProvider:LoadSaveData(self.settings.wishList) 
 end
-
 
 TWLPopUpMixin = {}
 

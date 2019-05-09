@@ -333,6 +333,7 @@
 			<OnMouseDown method="OnMouseDown"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
+			<OnUpdate method="OnUpdate"/>
 			<OnShow method="OnShow" />
 		</Scripts>
 	</DressUpModel>
