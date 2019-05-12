@@ -24,6 +24,41 @@ local WARDROBE_MODEL_SETUP_GEAR = {
 	["INVTYPE_HEAD"] = 78416,
 }
 
+local _illusionSources = {
+	[138787] = { -- Tome of Illusions: Azeroth
+		["spell"] = 217151
+		,["visuals"] = {25, 161, 27}
+	}
+	,[138790] = { -- Tome of Illusions: Northrend
+		["spell"] = 217172
+		,["visuals"] = {178, 172, 126}
+	}
+	,[138793] = { -- Tome of Illusions: Pandaria
+		["spell"] = 217175
+		,["visuals"] = {252, 236, 345}
+	}
+	,[138789] = { -- Tome of Illusions: Outland
+		["spell"] = 217171
+		,["visuals"] = {159, 160, 344}
+	}
+	,[138792] = { -- Tome of Illusions: Elemental Lords
+		["spell"] = 217174
+		,["visuals"] = {192, 195, 198}
+	}
+	,[138791] = { -- Tome of Illusions: Cataclysm
+		["spell"] = 217173
+		,["visuals"] = {193, 200, 213}
+	}
+	,[138794] = { -- Tome of Illusions: Secrets of the Shado-Pan
+		["spell"] = 217177
+		,["visuals"] = {237, 235}
+	}
+	,[138795] = { -- Tome of Illusions: Draenor
+		["spell"] = 217180
+		,["visuals"] = {283, 275}
+	}
+}
+
 local FORMAT_TOOLTIP_NAME = "%s  |TInterface\\Addons\\TransmogWishList\\Images\\WishIcon:12|t";
 local FORMAT_CHAT_ICON = "|TInterface\\Addons\\TransmogWishList\\Images\\WishIcon:12|t%s";
 local FORMAT_MODID_SELECTED = "Selected: |cFFFFD100%d|r ";
@@ -119,6 +154,9 @@ function TransmogWishListDataProviderMixin:Sort()
 			end
 			if a.obtainable ~= b.obtainable then
 				return a.obtainable and not b.obtainable;
+			end
+			if not a.itemID or not b.itemID then
+				return not a.itemID and b.itemID;
 			end
 			if a.isArmor ~= b.isArmor then
 				return a.isArmor and not b.isArmor;
@@ -235,7 +273,7 @@ function TransmogWishListDataProviderMixin:AddIllusionToList(illusion, fromLoad)
 	self:Sort();
 	TransmogWishListFrame:Update();
 	if (not fromLoad) then
-		local _, _, _, hex = GetItemQualityColor(1);
+		local _, _, _, hex = GetItemQualityColor(6);
 		TransmogWishListPopUp:Announce(FORMAT_APPEARANCE_ADDED:format(hex, name, appearanceID));
 	end
 	TWL:UpdateAllWishButtons();
@@ -653,8 +691,13 @@ function TransMogWishListModelMixin:OnMouseDown()
 	local itemInfo = self.itemInfo
 	if(itemInfo and itemInfo.illusion or self.itemInfo.sourceID) then
 		if (IsModifiedClick("DRESSUP")) then
-			local sourceID = itemInfo.illusion and itemInfo.illusion.sourceID or itemInfo.sourceID;
-			DressUpVisual(sourceID);
+			if (itemInfo.itemID) then
+				DressUpVisual(itemInfo.sourceID);
+			elseif (itemInfo.illusion) then
+				local slot = "MAINHANDSLOT";
+				local weaponSourceID = WardrobeCollectionFrame_GetWeaponInfoForEnchant(slot);
+				DressUpVisual(weaponSourceID, slot, itemInfo.illusion.sourceID);
+			end
 		end
 	end
 end
@@ -711,9 +754,9 @@ function TransMogWishListModelMixin:ShowWishlistItem()
 	local itemInfo = self.itemInfo;
 	self:Undress();
 	
-	if itemInfo.itemID then
+	if (itemInfo.itemID) then
 	
-		if itemInfo.isArmor then
+		if (itemInfo.isArmor) then
 			cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
 			self:SetUseTransmogSkin(WARDROBE_MODEL_SETUP[itemInfo.equipLocation].useTransmogSkin);
 			self:SetUnit("player", false);
@@ -729,6 +772,12 @@ function TransMogWishListModelMixin:ShowWishlistItem()
 			cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(itemInfo.sourceID);
 			self:SetItemAppearance(itemInfo.visualID)
 		end
+	elseif (itemInfo.illusion) then
+		local slot = "MAINHANDSLOT";
+		local appearanceSourceID, appearanceVisualID = WardrobeCollectionFrame_GetWeaponInfoForEnchant("MAINHANDSLOT");
+		
+		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(appearanceSourceID);
+		self:SetItemAppearance(appearanceVisualID, itemInfo.illusion.visualID)
 	end
 	
 	if (cameraID) then
@@ -745,7 +794,6 @@ function TransMogWishListModelMixin:ShowWishlistItem()
 		self.Border:SetAtlas("transmog-wardrobe-border-collected");
 	elseif itemInfo.obtainable then
 		self.Border:SetAtlas("transmog-wardrobe-border-uncollected");
-		--self.Border:SetAtlas("transmog-wardrobe-border-collected");
 	else
 		self.Border:SetAtlas("transmog-wardrobe-border-unusable");
 	end
@@ -995,10 +1043,11 @@ function TWLModPickerMixin:ShowModel(modInfo)
 	model.itemID = self.itemID;
 	model.modID = modInfo.modID;
 	model:Undress();
-	if self.isArmor then
+	
+	if (self.isArmor) then
+		model:SetUnit("player", false);
 		cameraID = C_TransmogCollection.GetAppearanceCameraIDBySource(modInfo.sourceID);
 		model:SetUseTransmogSkin(WARDROBE_MODEL_SETUP[self.itemEquipLoc].useTransmogSkin);
-		model:SetUnit("player", false);
 		for slot, equip in pairs(WARDROBE_MODEL_SETUP[self.itemEquipLoc].slots) do
 			if ( equip ) then
 				model:TryOn(WARDROBE_MODEL_SETUP_GEAR[slot]);
