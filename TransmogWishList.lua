@@ -518,6 +518,7 @@ function TransmogWishListMixin:StickToItemCollectionFrame()
 	local collectionFrame = WardrobeCollectionFrame.ItemsCollectionFrame;
 	local setsFrame = WardrobeCollectionFrame.SetsCollectionFrame;
 	
+	self:ClearAllPoints();
 	self:SetParent(collectionFrame);
 	self:SetFrameLevel(collectionFrame:GetFrameLevel()+10);
 	self:SetAllPoints();
@@ -639,17 +640,19 @@ local function UpdateModelTooltip(tooltip)
 			-- Display sources if available
 			GameTooltip:AddLine("Available sources");
 			for k, source in ipairs(sources) do
-				GameTooltip:AddLine(source.name, GetItemQualityColor(source.quality or 1));
-				if source.sourceType == TRANSMOG_SOURCE_BOSS_DROP then
-					local drops = _wishListDataProvider:GetAppearanceSourceDrops(source.sourceID);
-					for k, drop in pairs(drops) do
-						GameTooltip:AddDoubleLine("  " .. drop.instance, drop.encounter, 1, 1, 1, 1, 1, 1);--, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95);
-						if (#drop.difficulties > 0) then
-							GameTooltip:AddLine("  - " ..table.concat(drop.difficulties, ", "), 0.75, 0.75, 0.75);
+				if (source.name and source.sourceType) then
+					GameTooltip:AddLine(source.name, GetItemQualityColor(source.quality or 1));
+					if source.sourceType == TRANSMOG_SOURCE_BOSS_DROP then
+						local drops = _wishListDataProvider:GetAppearanceSourceDrops(source.sourceID);
+						for k, drop in pairs(drops) do
+							GameTooltip:AddDoubleLine("  " .. drop.instance, drop.encounter, 1, 1, 1, 1, 1, 1);
+							if (#drop.difficulties > 0) then
+								GameTooltip:AddLine("  - " ..table.concat(drop.difficulties, ", "), 0.75, 0.75, 0.75);
+							end
 						end
+					elseif (source.sourceType) then
+						GameTooltip:AddLine("  " ..  _G["TRANSMOG_SOURCE_" .. source.sourceType], 1, 1, 1);
 					end
-				elseif (source.sourceType) then
-					GameTooltip:AddLine("  " ..  _G["TRANSMOG_SOURCE_" .. source.sourceType], 1, 1, 1);--, 0.95, 0.95, 0.95)
 				end
 			end
 		else
@@ -659,7 +662,9 @@ local function UpdateModelTooltip(tooltip)
 		local visualID, name, link = C_TransmogCollection.GetIllusionSourceInfo(itemInfo.illusion.sourceID);
 		GameTooltip:AddLine("Available sources");
 		GameTooltip:AddLine(name, GetItemQualityColor(6));
-		GameTooltip:AddLine(" " .. itemInfo.illusion.sourceText, 1, 1, 1);
+		if (itemInfo.illusion.sourceText) then
+			GameTooltip:AddLine(" " .. itemInfo.illusion.sourceText, 1, 1, 1);
+		end
 	end
 	
 	GameTooltip:Show();
@@ -1101,6 +1106,13 @@ function TWL:OnEnable()
 	self.settings.versionCheck  = GetAddOnMetadata(_addonName, "version");
 	
 	_wishListDataProvider:LoadSaveData(self.settings.wishList) 
+	
+	-- Clean up collected illustrations just in case 
+	for k, itemInfo in _wishListDataProvider:EnumerateWishList() do
+		if (itemInfo.illusion and not itemInfo.illusion.sourceText) then
+			itemInfo.collected = true;
+		end
+	end
 end
 
 TWLPopUpMixin = {}
