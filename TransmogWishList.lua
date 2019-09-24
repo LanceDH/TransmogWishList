@@ -128,14 +128,32 @@ function TransmogWishListDataProviderMixin:OnLoad()
 end
 
 function TransmogWishListDataProviderMixin:GetAppearanceSources(visualID, forceUpdate)
-	if (forceUpdate or not self.sourceInfo[visualID]) then
+	local needsUpdate = false;
+	local sources = self.sourceInfo[visualID];
+	if (sources) then
+		-- Check if all sources have their name loaded
+		for k, source in ipairs(sources) do
+			if (not source.name) then
+				needsUpdate = true;
+				break;
+			end
+		end
+	else
+		-- first time getting info
 		self.sourceInfo[visualID] = {};
+		sources = self.sourceInfo[visualID];
+		needsUpdate = true;
+	end
+
+	if (needsUpdate or forceUpdate) then
+		-- Clear out current source info
+		wipe(sources);
 		for k, sourceID in ipairs(C_TransmogCollection.GetAllAppearanceSources(visualID)) do
-			tinsert(self.sourceInfo[visualID], C_TransmogCollection.GetSourceInfo(sourceID));
+			tinsert(sources, C_TransmogCollection.GetSourceInfo(sourceID));
 		end
 	end
 	
-	return self.sourceInfo[visualID];
+	return sources;
 end
 
 function TransmogWishListDataProviderMixin:GetAppearanceSourceDrops(sourceID)
@@ -623,9 +641,8 @@ local function UpdateModelTooltip(tooltip)
 	if (itemInfo.collected) then return end;
 	modelFrame.RemoveButton:Show();
 		
-	local sources = _wishListDataProvider:GetAppearanceSources(itemInfo.visualID);
-		
 	if (itemInfo.itemID) then
+		local sources = _wishListDataProvider:GetAppearanceSources(itemInfo.visualID);
 		local itemName, _, titleQuality = GetItemInfo(itemInfo.itemID);
 		-- Data not yet available
 		if (not itemName) then
@@ -694,7 +711,7 @@ end
 
 function TransMogWishListModelMixin:OnMouseDown()
 	local itemInfo = self.itemInfo
-	if(itemInfo and itemInfo.illusion or self.itemInfo.sourceID) then
+	if(itemInfo and (itemInfo.illusion or self.itemInfo.sourceID)) then
 		if (IsModifiedClick("DRESSUP")) then
 			if (itemInfo.itemID) then
 				DressUpVisual(itemInfo.sourceID);
@@ -1126,8 +1143,6 @@ function TWLPopUpMixin:OnShow()
 end
 
 function TWLPopUpMixin:Announce(text)	
-	
-	
 	self.FadeInAnim:Stop();
 	self.CollectedAnim:Stop();
 	self:Hide();
