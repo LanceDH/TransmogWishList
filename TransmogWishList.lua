@@ -276,8 +276,6 @@ function TransmogWishListDataProviderMixin:AddVisualIDToList(visualID, fromLoad)
 		local sources = self:GetAppearanceSources(visualID)
 		if (sources and sources[1]) then
 			self:AddItemIDToList(sources[1].itemID, sources[1].itemModID, fromLoad);
-		else
-			print("Unknown visualID", visualID);
 		end
 	end
 end
@@ -1121,6 +1119,11 @@ function TWL:OnEnable()
 		ConvertOldData(self.settings.wishList);
 	end
 	self.settings.versionCheck  = GetAddOnMetadata(_addonName, "version");
+	
+	if (IsAddOnLoaded("Blizzard_Collections")) then
+		TransmogWishListFrame:StickToItemCollectionFrame();
+		TransmogWishListFrame:UnregisterEvent("ADDON_LOADED");
+	end
 	
 	_wishListDataProvider:LoadSaveData(self.settings.wishList) 
 	
